@@ -113,6 +113,8 @@ numbers. New applications filter out passwords by adding the following `config.f
 
 * `config.logger` accepts a logger conforming to the interface of Log4r or the default Ruby `Logger` class. Defaults to an instance of `ActiveSupport::Logger`, with auto flushing off in production mode.
 
+* `config.message_verifier_salt` allows you to configure the application's verifier salt. Defaults to `'application verifier'`.
+
 * `config.middleware` allows you to configure the application's middleware. This is covered in depth in the [Configuring Middleware](#configuring-middleware) section below.
 
 * `config.reload_classes_only_on_change` enables or disables reloading of classes only when tracked files change. By default tracks everything on autoload paths and is set to true. If `config.cache_classes` is true, this option is ignored.
