@@ -1,3 +1,15 @@
+*   Add `Application#verifier` method to return a application's message verifier.
+
+    This verifier can be used to generate and verify signed messages in the application.
+
+        message = Rails.application.verifier.generate('my sensible data')
+        Rails.application.verifier.verify(message)
+        # => 'my sensible data'
+
+    See the `ActiveSupport::MessageVerifier` documentation to more information.
+
+    *Rafael Mendonça França*
+
 *   Uses .railsrc while creating new plugin if it is available.
     Fixes #10700.
 
