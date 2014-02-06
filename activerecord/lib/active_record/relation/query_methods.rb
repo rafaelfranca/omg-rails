@@ -825,10 +825,8 @@ module ActiveRecord
 
     # Returns the Arel object associated with the relation.
     def arel # :nodoc:
-      @arel ||= build_arel
+      @arel ||= with_default_scope.build_arel
     end
-
-    private
 
     def build_arel
       arel = Arel::SelectManager.new(table.engine, table)
@@ -854,6 +852,8 @@ module ActiveRecord
 
       arel
     end
+
+    private
 
     def symbol_unscoping(scope)
       if !VALID_UNSCOPING_VALUES.include?(scope)

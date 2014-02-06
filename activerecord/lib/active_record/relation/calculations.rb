@@ -99,16 +99,22 @@ module ActiveRecord
     #
     #   Person.sum("2 * age")
     def calculate(operation, column_name, options = {})
+      relation = with_default_scope
+
       # TODO: Remove options argument as soon we remove support to
       # activerecord-deprecated_finders.
       if column_name.is_a?(Symbol) && attribute_alias?(column_name)
         column_name = attribute_alias(column_name)
       end
 
-      if has_include?(column_name)
-        construct_relation_for_association_calculations.calculate(operation, column_name, options)
+      if relation.equal?(self)
+        if has_include?(column_name)
+          construct_relation_for_association_calculations.calculate(operation, column_name, options)
+        else
+          perform_calculation(operation, column_name, options)
+        end
       else
-        perform_calculation(operation, column_name, options)
+        relation.calculate(operation, column_name, options)
       end
     end
 

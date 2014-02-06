@@ -295,6 +295,7 @@ module ActiveRecord
         relation = relation.where(table[primary_key].eq(conditions)) if conditions != :none
       end
 
+      relation = relation.with_default_scope
       connection.select_value(relation, "#{name} Exists", relation.bind_values) ? true : false
     end
 
@@ -453,7 +454,7 @@ module ActiveRecord
     end
 
     def find_nth_with_limit(offset, limit)
-      if order_values.empty? && primary_key
+      if with_default_scope.order_values.empty? && primary_key
         order(arel_table[primary_key].asc).limit(limit).offset(offset).to_a
       else
         limit(limit).offset(offset).to_a

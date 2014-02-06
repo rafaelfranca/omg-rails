@@ -182,7 +182,7 @@ class DefaultScopingTest < ActiveRecord::TestCase
 
   def test_order_to_unscope_reordering
     scope = DeveloperOrderedBySalary.order('salary DESC, name ASC').reverse_order.unscope(:order)
-    assert !(scope.to_sql =~ /order/i)
+    assert_not (scope.to_sql =~ /order/i)
   end
 
   def test_unscope_reverse_order

@@ -17,8 +17,10 @@ module ActiveRecord
     include FinderMethods, Calculations, SpawnMethods, QueryMethods, Batches, Explain, Delegation
 
     attr_reader :table, :klass, :loaded
+    attr_accessor :default_scoped
     alias :model :klass
     alias :loaded? :loaded
+    alias :default_scoped? :default_scoped
 
     def initialize(klass, table, values = {})
       @klass  = klass
@@ -26,6 +28,7 @@ module ActiveRecord
       @values = values
       @offsets = {}
       @loaded = false
+      @default_scoped = false
     end
 
     def initialize_copy(other)
@@ -316,7 +319,7 @@ module ActiveRecord
       stmt.table(table)
       stmt.key = table[primary_key]
 
-      if joins_values.any?
+      if with_default_scope.joins_values.any?
         @klass.connection.join_to_update(stmt, arel)
       else
         stmt.take(arel.limit)
@@ -441,7 +444,7 @@ module ActiveRecord
         stmt = Arel::DeleteManager.new(arel.engine)
         stmt.from(table)
 
-        if joins_values.any?
+        if with_default_scope.joins_values.any?
           @klass.connection.join_to_delete(stmt, arel, table[primary_key])
         else
           stmt.wheres = arel.constraints
@@ -530,11 +533,13 @@ module ActiveRecord
     #   User.where(name: 'Oscar').where_values_hash
     #   # => {name: "Oscar"}
     def where_values_hash
-      equalities = where_values.grep(Arel::Nodes::Equality).find_all { |node|
+      scope = with_default_scope
+      equalities = scope.where_values.grep(Arel::Nodes::Equality).find_all { |node|
         node.left.relation.name == table_name
       }
 
-      binds = Hash[bind_values.find_all(&:first).map { |column, v| [column.name, v] }]
+      binds = Hash[scope.bind_values.find_all(&:first).map { |column, v| [column.name, v] }]
+      binds.merge!(Hash[bind_values.find_all(&:first).map { |column, v| [column.name, v] }])
 
       Hash[equalities.map { |where|
         name = where.left.name
@@ -581,6 +586,16 @@ module ActiveRecord
       q.pp(self.to_a)
     end
 
+    def with_default_scope #:nodoc:
+      if default_scoped? && default_scope = klass.send(:build_default_scope)
+        default_scope = default_scope.merge(self)
+        default_scope.default_scoped = false
+        default_scope
+      else
+        self
+      end
+    end
+
     # Returns true if relation is blank.
     def blank?
       to_a.blank?
@@ -600,16 +615,22 @@ module ActiveRecord
     private
 
     def exec_queries
-      @records = eager_loading? ? find_with_associations : @klass.find_by_sql(arel, bind_values)
+      default_scoped = with_default_scope
 
-      preload = preload_values
-      preload +=  includes_values unless eager_loading?
-      preloader = ActiveRecord::Associations::Preloader.new
-      preload.each do |associations|
-        preloader.preload @records, associations
+      if default_scoped.equal?(self)
+        @records = eager_loading? ? find_with_associations : @klass.find_by_sql(arel, bind_values)
+
+        preload = preload_values
+        preload +=  includes_values unless eager_loading?
+        preloader = ActiveRecord::Associations::Preloader.new
+        preload.each do |associations|
+          preloader.preload @records, associations
+        end
+
+        @records.each { |record| record.readonly! } if readonly_value
+      else
+        @records = default_scoped.to_a
       end
-
-      @records.each { |record| record.readonly! } if readonly_value
 
       @loaded = true
       @records
