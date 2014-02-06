@@ -11,6 +11,11 @@ class DefaultScopingTest < ActiveRecord::TestCase
     assert_equal expected, received
   end
 
+  def test_scope_overrides_default_scope_for_same_attributes
+    assert_equal DeveloperCalledJamis.where(name: 'David'), DeveloperCalledJamis.unscoped.where(name: 'David')
+    assert_equal DeveloperCalledJamis.david, DeveloperCalledJamis.unscoped.david
+  end
+
   def test_default_scope_as_class_method
     assert_equal [developers(:david).becomes(ClassMethodDeveloperCalledDavid)], ClassMethodDeveloperCalledDavid.all
   end
