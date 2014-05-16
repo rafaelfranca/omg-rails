@@ -79,11 +79,11 @@ module ActiveRecord
         end
       end
 
-      def _update_record(*)
+      def persist_with_update(*)
         partial_writes? ? super(keys_for_partial_write) : super
       end
 
-      def _create_record(*)
+      def persist_with_insert(*)
         partial_writes? ? super(keys_for_partial_write) : super
       end
 

@@ -43,7 +43,7 @@ module ActiveRecord
 
   private
 
-    def _create_record
+    def persist_with_insert
       if self.record_timestamps
         current_time = current_time_from_proper_timezone
 
@@ -57,7 +57,7 @@ module ActiveRecord
       super
     end
 
-    def _update_record(*args)
+    def persist_with_update(*args)
       if should_record_timestamps?
         current_time = current_time_from_proper_timezone
 

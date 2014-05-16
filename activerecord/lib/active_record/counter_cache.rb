@@ -131,7 +131,7 @@ module ActiveRecord
 
     private
 
-      def _create_record(*)
+      def persist_with_insert(*)
         id = super
 
         each_counter_cached_associations do |association|
