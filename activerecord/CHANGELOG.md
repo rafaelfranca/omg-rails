@@ -128,7 +128,14 @@
     Serialized attributes on ActiveRecord models will no longer save when
     unchanged. Fixes #8328.
 
-    *Sean Griffin*
+    Sean Griffin
+
+*   Fixed automatic maintaining test schema to properly handle sql structure
+    schema format.
+
+    Fixes #15394.
+
+    *Wojciech Wnętrzak*
 
 *   Pluck now works when selecting columns from different tables with the same
     name.
