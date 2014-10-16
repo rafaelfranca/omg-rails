@@ -57,10 +57,11 @@ module ActiveRecord
         end
       end
 
-      # sqlite databases should be able to support any type and not
-      # just the ones mentioned in the native_database_types.
-      # Therefore test_invalid column should always return true
-      # even if the type is not valid.
+      # sqlite3 databases should be able to support any type and not just the
+      # ones mentioned in the native_database_types.
+      #
+      # Therefore test_invalid column should always return true even if the
+      # type is not valid.
       def test_invalid_column
         assert @conn.valid_type?(:foobar)
       end
@@ -296,7 +297,7 @@ module ActiveRecord
       def test_tables_logs_name
         sql = <<-SQL
           SELECT name FROM sqlite_master
-          WHERE type = 'table' AND NOT name = 'sqlite_sequence'
+          WHERE (type = 'table' OR type = 'view') AND NOT name = 'sqlite_sequence'
         SQL
         assert_logged [[sql.squish, 'SCHEMA', []]] do
           @conn.tables('hello')
@@ -315,7 +316,7 @@ module ActiveRecord
         with_example_table do
           sql = <<-SQL
             SELECT name FROM sqlite_master
-            WHERE type = 'table'
+            WHERE (type = 'table' OR type = 'view')
             AND NOT name = 'sqlite_sequence' AND name = \"ex\"
           SQL
           assert_logged [[sql.squish, 'SCHEMA', []]] do

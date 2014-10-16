@@ -12,12 +12,7 @@ class PostgresqlArrayTest < ActiveRecord::TestCase
   def setup
     @connection = ActiveRecord::Base.connection
 
-    unless @connection.extension_enabled?('hstore')
-      @connection.enable_extension 'hstore'
-      @connection.commit_db_transaction
-    end
-
-    @connection.reconnect!
+    enable_extension!('hstore', @connection)
 
     @connection.transaction do
       @connection.create_table('pg_arrays') do |t|
@@ -32,13 +27,13 @@ class PostgresqlArrayTest < ActiveRecord::TestCase
 
   teardown do
     @connection.execute 'drop table if exists pg_arrays'
+    disable_extension!('hstore', @connection)
   end
 
   def test_column
     assert_equal :string, @column.type
     assert_equal "character varying", @column.sql_type
     assert @column.array
-    assert_not @column.text?
     assert_not @column.number?
     assert_not @column.binary?
 
@@ -192,16 +187,6 @@ class PostgresqlArrayTest < ActiveRecord::TestCase
     assert_equal("[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, ...]", record.attribute_for_inspect(:ratings))
   end
 
-  def test_update_all
-    pg_array = PgArray.create! tags: ["one", "two", "three"]
-
-    PgArray.update_all tags: ["four", "five"]
-    assert_equal ["four", "five"], pg_array.reload.tags
-
-    PgArray.update_all tags: []
-    assert_equal [], pg_array.reload.tags
-  end
-
   def test_escaping
     unknown = 'foo\\",bar,baz,\\'
     tags = ["hello_#{unknown}"]
@@ -267,6 +252,15 @@ class PostgresqlArrayTest < ActiveRecord::TestCase
       assert_equal [time], record.datetimes
       assert_equal ActiveSupport::TimeZone[tz], record.datetimes.first.time_zone
     end
+  end
+
+  def test_assigning_non_array_value
+    record = PgArray.new(tags: "not-an-array")
+    assert_equal "not-an-array", record.tags
+    e = assert_raises(ActiveRecord::StatementInvalid) do
+      record.save!
+    end
+    assert_instance_of PG::InvalidTextRepresentation, e.original_exception
   end
 
   private

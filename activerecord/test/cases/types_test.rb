@@ -35,13 +35,6 @@ module ActiveRecord
         assert_equal false, type.type_cast_from_user('SOMETHING RANDOM')
       end
 
-      def test_type_cast_string
-        type = Type::String.new
-        assert_equal "1", type.type_cast_from_user(true)
-        assert_equal "0", type.type_cast_from_user(false)
-        assert_equal "123", type.type_cast_from_user(123)
-      end
-
       def test_type_cast_integer
         type = Type::Integer.new
         assert_equal 1, type.type_cast_from_user(1)
@@ -79,16 +72,27 @@ module ActiveRecord
         assert_nil type.type_cast_from_user(1.0/0.0)
       end
 
+      def test_changing_integers
+        type = Type::Integer.new
+
+        assert type.changed?(5, 5, '5wibble')
+        assert_not type.changed?(5, 5, '5')
+        assert_not type.changed?(5, 5, '5.0')
+        assert_not type.changed?(nil, nil, nil)
+      end
+
       def test_type_cast_float
         type = Type::Float.new
         assert_equal 1.0, type.type_cast_from_user("1")
       end
 
-      def test_type_cast_decimal
-        type = Type::Decimal.new
-        assert_equal BigDecimal.new("0"), type.type_cast_from_user(BigDecimal.new("0"))
-        assert_equal BigDecimal.new("123"), type.type_cast_from_user(123.0)
-        assert_equal BigDecimal.new("1"), type.type_cast_from_user(:"1")
+      def test_changing_float
+        type = Type::Float.new
+
+        assert type.changed?(5.0, 5.0, '5wibble')
+        assert_not type.changed?(5.0, 5.0, '5')
+        assert_not type.changed?(5.0, 5.0, '5.0')
+        assert_not type.changed?(nil, nil, nil)
       end
 
       def test_type_cast_binary
@@ -143,6 +147,12 @@ module ActiveRecord
             assert_equal Time.utc(2013, 9, 4, 0, 0, 0), type.type_cast_from_user("Wed, 04 Sep 2013 03:00:00 EAT")
           end
         end
+      end
+
+      def test_type_equality
+        assert_equal Type::Value.new, Type::Value.new
+        assert_not_equal Type::Value.new, Type::Integer.new
+        assert_not_equal Type::Value.new(precision: 1), Type::Value.new(precision: 2)
       end
 
       if current_adapter?(:SQLite3Adapter)

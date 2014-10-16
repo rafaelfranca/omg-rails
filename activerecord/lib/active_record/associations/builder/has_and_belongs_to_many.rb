@@ -11,11 +11,14 @@ module ActiveRecord::Associations::Builder
         end
 
         def join_table
-          @join_table ||= [@lhs_class.table_name, klass.table_name].sort.join("\0").gsub(/^(.*[._])(.+)\0\1(.+)/, '\1\2_\3').gsub("\0", "_")
+          @join_table ||= [@lhs_class.table_name, klass.table_name].sort.join("\0").gsub(/^(.*[._])(.+)\0\1(.+)/, '\1\2_\3').tr("\0", "_")
         end
 
         private
-        def klass; @rhs_class_name.constantize; end
+
+        def klass
+          @lhs_class.send(:compute_type, @rhs_class_name)
+        end
       end
 
       def self.build(lhs_class, name, options)
@@ -23,13 +26,7 @@ module ActiveRecord::Associations::Builder
           KnownTable.new options[:join_table].to_s
         else
           class_name = options.fetch(:class_name) {
-            model_name = name.to_s.camelize.singularize
-
-            if lhs_class.parent_name
-              model_name.prepend("#{lhs_class.parent_name}::")
-            end
-
-            model_name
+            name.to_s.camelize.singularize
           }
           KnownClass.new lhs_class, class_name
         end

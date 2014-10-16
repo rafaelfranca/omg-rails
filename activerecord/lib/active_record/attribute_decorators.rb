@@ -7,7 +7,7 @@ module ActiveRecord
       self.attribute_type_decorations = TypeDecorator.new
     end
 
-    module ClassMethods
+    module ClassMethods # :nodoc:
       def decorate_attribute_type(column_name, decorator_name, &block)
         matcher = ->(name, _) { name == column_name.to_s }
         key = "_#{column_name}_#{decorator_name}"
@@ -26,13 +26,13 @@ module ActiveRecord
 
       def add_user_provided_columns(*)
         super.map do |column|
-          decorated_type = attribute_type_decorations.apply(self, column.name, column.cast_type)
+          decorated_type = attribute_type_decorations.apply(column.name, column.cast_type)
           column.with_type(decorated_type)
         end
       end
     end
 
-    class TypeDecorator
+    class TypeDecorator # :nodoc:
       delegate :clear, to: :@decorations
 
       def initialize(decorations = {})
@@ -43,8 +43,8 @@ module ActiveRecord
         TypeDecorator.new(@decorations.merge(*args))
       end
 
-      def apply(context, name, type)
-        decorations = decorators_for(context, name, type)
+      def apply(name, type)
+        decorations = decorators_for(name, type)
         decorations.inject(type) do |new_type, block|
           block.call(new_type)
         end
@@ -52,13 +52,13 @@ module ActiveRecord
 
       private
 
-      def decorators_for(context, name, type)
-        matching(context, name, type).map(&:last)
+      def decorators_for(name, type)
+        matching(name, type).map(&:last)
       end
 
-      def matching(context, name, type)
+      def matching(name, type)
         @decorations.values.select do |(matcher, _)|
-          context.instance_exec(name, type, &matcher)
+          matcher.call(name, type)
         end
       end
     end

@@ -36,6 +36,23 @@ module ActiveRecord
         end
       end
 
+      # Creates an object (or multiple objects) and saves it to the database,
+      # if validations pass. Raises a RecordInvalid error if validations fail,
+      # unlike Base#create.
+      #
+      # The +attributes+ parameter can be either a Hash or an Array of Hashes.
+      # These describe which attributes to be created on the object, or
+      # multiple objects when given an Array of Hashes.
+      def create!(attributes = nil, &block)
+        if attributes.is_a?(Array)
+          attributes.collect { |attr| create!(attr, &block) }
+        else
+          object = new(attributes, &block)
+          object.save!
+          object
+        end
+      end
+
       # Given an attributes hash, +instantiate+ returns a new instance of
       # the appropriate class. Accepts only keys as strings.
       #
@@ -48,11 +65,7 @@ module ActiveRecord
       # how this "single-table" inheritance mapping is implemented.
       def instantiate(attributes, column_types = {})
         klass = discriminate_class_for_record(attributes)
-
-        attributes = attributes.each_with_object({}) do |(name, value), h|
-          type = column_types.fetch(name) { klass.type_for_attribute(name) }
-          h[name] = Attribute.from_database(value, type)
-        end
+        attributes = klass.attributes_builder.build_from_database(attributes, column_types)
         klass.allocate.init_with('attributes' => attributes, 'new_record' => false)
       end
 
@@ -274,7 +287,8 @@ module ActiveRecord
     # This method raises an +ActiveRecord::ActiveRecordError+ when called on new
     # objects, or when at least one of the attributes is marked as readonly.
     def update_columns(attributes)
-      raise ActiveRecordError, "cannot update on a new record object" unless persisted?
+      raise ActiveRecordError, "cannot update a new record" if new_record?
+      raise ActiveRecordError, "cannot update a destroyed record" if destroyed?
 
       attributes.each_key do |key|
         verify_readonly_attribute(key.to_s)
@@ -399,9 +413,8 @@ module ActiveRecord
           self.class.unscoped { self.class.find(id) }
         end
 
-      @attributes.update(fresh_object.instance_variable_get('@attributes'))
-
-      @column_types = self.class.column_types
+      @attributes = fresh_object.instance_variable_get('@attributes')
+      @new_record = false
       self
     end
 
@@ -453,7 +466,7 @@ module ActiveRecord
 
         changes[self.class.locking_column] = increment_lock if locking_enabled?
 
-        changed_attributes.except!(*changes.keys)
+        clear_attribute_changes(changes.keys)
         primary_key = self.class.primary_key
         self.class.unscoped.where(primary_key => self[primary_key]).update_all(changes) == 1
       else

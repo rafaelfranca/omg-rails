@@ -71,23 +71,27 @@ module ActiveSupport
     # order.
     #
     # If the callback chain was halted, returns +false+. Otherwise returns the
-    # result of the block, or +true+ if no block is given.
+    # result of the block, +nil+ if no callbacks have been set, or +true+
+    # if callbacks have been set but no block is given.
     #
     #   run_callbacks :save do
     #     save
     #   end
     def run_callbacks(kind, &block)
-      cbs = send("_#{kind}_callbacks")
-      if cbs.empty?
-        yield if block_given?
+      send "run_#{kind}_callbacks", &block
+    end
+
+    private
+
+    def _run_callbacks(callbacks, &block)
+      if callbacks.empty?
+        block.call if block
       else
-        runner = cbs.compile
+        runner = callbacks.compile
         e = Filters::Environment.new(self, false, nil, block)
         runner.call(e).value
       end
     end
-
-    private
 
     # A hook invoked every time a before callback is halted.
     # This can be overridden in AS::Callback implementors in order
@@ -415,15 +419,8 @@ module ActiveSupport
       #   Procs::   A proc to call with the object.
       #   Objects:: An object with a <tt>before_foo</tt> method on it to call.
       #
-      # All of these objects are compiled into methods and handled
-      # the same after this point:
-      #
-      #   Symbols:: Already methods.
-      #   Strings:: class_eval'd into methods.
-      #   Procs::   using define_method compiled into methods.
-      #   Objects::
-      #     a method is created that calls the before_foo method
-      #     on the object.
+      # All of these objects are converted into a lambda and handled
+      # the same after this point.
       def make_lambda(filter)
         case filter
         when Symbol
@@ -562,7 +559,7 @@ module ActiveSupport
       # This is used internally to append, prepend and skip callbacks to the
       # CallbackChain.
       def __update_callbacks(name) #:nodoc:
-        ([self] + ActiveSupport::DescendantsTracker.descendants(self)).reverse.each do |target|
+        ([self] + ActiveSupport::DescendantsTracker.descendants(self)).reverse_each do |target|
           chain = target.get_callbacks name
           yield target, chain.dup
         end
@@ -572,7 +569,7 @@ module ActiveSupport
       #
       #   set_callback :save, :before, :before_meth
       #   set_callback :save, :after,  :after_meth, if: :condition
-      #   set_callback :save, :around, ->(r, &block) { stuff; result = block.call; stuff }
+      #   set_callback :save, :around, ->(r, block) { stuff; result = block.call; stuff }
       #
       # The second arguments indicates whether the callback is to be run +:before+,
       # +:after+, or +:around+ the event. If omitted, +:before+ is assumed. This
@@ -722,12 +719,21 @@ module ActiveSupport
       #     define_callbacks :save, scope: [:name]
       #
       #   would call <tt>Audit#save</tt>.
+      #
+      # NOTE: +method_name+ passed to `define_model_callbacks` must not end with
+      # `!`, `?` or `=`.
       def define_callbacks(*names)
         options = names.extract_options!
 
         names.each do |name|
           class_attribute "_#{name}_callbacks"
           set_callbacks name, CallbackChain.new(name, options)
+
+          module_eval <<-RUBY, __FILE__, __LINE__ + 1
+            def run_#{name}_callbacks(&block)
+              _run_callbacks(_#{name}_callbacks, &block)
+            end
+          RUBY
         end
       end
 

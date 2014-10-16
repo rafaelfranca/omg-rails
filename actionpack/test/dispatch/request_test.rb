@@ -528,6 +528,13 @@ class RequestCGI < BaseRequestTest
   end
 end
 
+class LocalhostTest < BaseRequestTest
+  test "IPs that match localhost" do
+    request = stub_request("REMOTE_IP" => "127.1.1.1", "REMOTE_ADDR" => "127.1.1.1")
+    assert request.local?
+  end
+end
+
 class RequestCookie < BaseRequestTest
   test "cookie syntax resilience" do
     request = stub_request("HTTP_COOKIE" => "_session_id=c84ace84796670c052c6ceb2451fb0f2; is_admin=yes")
@@ -632,13 +639,27 @@ class RequestProtocol < BaseRequestTest
 end
 
 class RequestMethod < BaseRequestTest
-  test "request methods" do
-    [:post, :get, :patch, :put, :delete].each do |method|
-      request = stub_request('REQUEST_METHOD' => method.to_s.upcase)
+  test "method returns environment's request method when it has not been
+    overridden by middleware".squish do
 
-      assert_equal method.to_s.upcase, request.method
-      assert_equal method, request.method_symbol
+    ActionDispatch::Request::HTTP_METHODS.each do |method|
+      request = stub_request('REQUEST_METHOD' => method)
+
+      assert_equal method, request.method
+      assert_equal method.underscore.to_sym, request.method_symbol
     end
+  end
+
+  test "allow request method hacking" do
+    request = stub_request('REQUEST_METHOD' => 'POST')
+
+    assert_equal 'POST', request.request_method
+    assert_equal 'POST', request.env["REQUEST_METHOD"]
+
+    request.request_method = 'GET'
+
+    assert_equal 'GET', request.request_method
+    assert_equal 'GET', request.env["REQUEST_METHOD"]
   end
 
   test "invalid http method raises exception" do
@@ -647,28 +668,34 @@ class RequestMethod < BaseRequestTest
     end
   end
 
-  test "allow method hacking on post" do
-    %w(GET OPTIONS PATCH PUT POST DELETE).each do |method|
-      request = stub_request 'REQUEST_METHOD' => method.to_s.upcase
-
-      assert_equal(method == "HEAD" ? "GET" : method, request.method)
-    end
+  test "method returns original value of environment request method on POST" do
+    request = stub_request('rack.methodoverride.original_method' => 'POST')
+    assert_equal 'POST', request.method
   end
 
-  test "invalid method hacking on post raises exception" do
+  test "method raises exception on invalid HTTP method" do
     assert_raise(ActionController::UnknownHttpMethod) do
-      stub_request('REQUEST_METHOD' => '_RANDOM_METHOD').request_method
+      stub_request('rack.methodoverride.original_method' => '_RANDOM_METHOD').method
+    end
+
+    assert_raise(ActionController::UnknownHttpMethod) do
+      stub_request('REQUEST_METHOD' => '_RANDOM_METHOD').method
     end
   end
 
-  test "restrict method hacking" do
-    [:get, :patch, :put, :delete].each do |method|
-      request = stub_request(
-        'action_dispatch.request.request_parameters' => { :_method => 'put' },
-        'REQUEST_METHOD' => method.to_s.upcase
-      )
+  test "exception on invalid HTTP method unaffected by I18n settings" do
+    old_locales = I18n.available_locales
+    old_enforce = I18n.config.enforce_available_locales
 
-      assert_equal method.to_s.upcase, request.method
+    begin
+      I18n.available_locales = [:nl]
+      I18n.config.enforce_available_locales = true
+      assert_raise(ActionController::UnknownHttpMethod) do
+        stub_request('REQUEST_METHOD' => '_RANDOM_METHOD').method
+      end
+    ensure
+      I18n.available_locales = old_locales
+      I18n.config.enforce_available_locales = old_enforce
     end
   end
 
@@ -798,6 +825,12 @@ class RequestFormat < BaseRequestTest
     assert_not request.format.json?
   end
 
+  test "format does not throw exceptions when malformed parameters" do
+    request = stub_request("QUERY_STRING" => "x[y]=1&x[y][][w]=2")
+    assert request.formats
+    assert request.format.html?
+  end
+
   test "formats with xhr request" do
     request = stub_request 'HTTP_X_REQUESTED_WITH' => "XMLHttpRequest"
     request.expects(:parameters).at_least_once.returns({})
@@ -893,22 +926,47 @@ class RequestParameters < BaseRequestTest
     assert_equal({"bar" => 2}, request.query_parameters)
   end
 
-  test "parameters still accessible after rack parse error" do
+  test "parameters not accessible after rack parse error" do
     request = stub_request("QUERY_STRING" => "x[y]=1&x[y][][w]=2")
 
+    2.times do
+      assert_raises(ActionController::BadRequest) do
+        # rack will raise a Rack::Utils::ParameterTypeError when parsing this query string
+        request.parameters
+      end
+    end
+  end
+
+  test "parameters not accessible after rack parse error of invalid UTF8 character" do
+    request = stub_request("QUERY_STRING" => "foo%81E=1")
+
+    2.times do
+      assert_raises(ActionController::BadRequest) do
+        # rack will raise a Rack::Utils::InvalidParameterError when parsing this query string
+        request.parameters
+      end
+    end
+  end
+
+  test "parameters not accessible after rack parse error 1" do
+    request = stub_request(
+      'REQUEST_METHOD' => 'POST',
+      'CONTENT_LENGTH' => "a%=".length,
+      'CONTENT_TYPE' => 'application/x-www-form-urlencoded; charset=utf-8',
+      'rack.input' => StringIO.new("a%=")
+    )
+
     assert_raises(ActionController::BadRequest) do
-      # rack will raise a TypeError when parsing this query string
+      # rack will raise a Rack::Utils::ParameterTypeError when parsing this query string
       request.parameters
     end
-
-    assert_equal({}, request.parameters)
   end
 
   test "we have access to the original exception" do
     request = stub_request("QUERY_STRING" => "x[y]=1&x[y][][w]=2")
 
     e = assert_raises(ActionController::BadRequest) do
-      # rack will raise a TypeError when parsing this query string
+      # rack will raise a Rack::Utils::ParameterTypeError when parsing this query string
       request.parameters
     end
 
@@ -1066,7 +1124,7 @@ class RequestEtag < BaseRequestTest
   end
 end
 
-class RequestVarient < BaseRequestTest
+class RequestVariant < BaseRequestTest
   test "setting variant" do
     request = stub_request
 

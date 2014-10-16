@@ -5,6 +5,7 @@ require 'models/subscriber'
 require 'models/movie'
 require 'models/keyboard'
 require 'models/mixed_case_monkey'
+require 'models/dashboard'
 
 class PrimaryKeysTest < ActiveRecord::TestCase
   fixtures :topics, :subscribers, :movies, :mixed_case_monkeys
@@ -134,14 +135,22 @@ class PrimaryKeysTest < ActiveRecord::TestCase
   end
 
   def test_primary_key_returns_value_if_it_exists
+    klass = Class.new(ActiveRecord::Base) do
+      self.table_name = 'developers'
+    end
+
     if ActiveRecord::Base.connection.supports_primary_key?
-      assert_equal 'id', ActiveRecord::Base.connection.primary_key('developers')
+      assert_equal 'id', klass.primary_key
     end
   end
 
   def test_primary_key_returns_nil_if_it_does_not_exist
+    klass = Class.new(ActiveRecord::Base) do
+      self.table_name = 'developers_projects'
+    end
+
     if ActiveRecord::Base.connection.supports_primary_key?
-      assert_nil ActiveRecord::Base.connection.primary_key('developers_projects')
+      assert_nil klass.primary_key
     end
   end
 
@@ -155,6 +164,15 @@ class PrimaryKeysTest < ActiveRecord::TestCase
   def test_auto_detect_primary_key_from_schema
     MixedCaseMonkey.reset_primary_key
     assert_equal "monkeyID", MixedCaseMonkey.primary_key
+  end
+
+  def test_primary_key_update_with_custom_key_name
+    dashboard = Dashboard.create!(dashboard_id: '1')
+    dashboard.id = '2'
+    dashboard.save!
+
+    dashboard = Dashboard.first
+    assert_equal '2', dashboard.id
   end
 end
 

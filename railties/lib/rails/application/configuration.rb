@@ -13,7 +13,7 @@ module Rails
                     :railties_order, :relative_url_root, :secret_key_base, :secret_token,
                     :serve_static_assets, :ssl_options, :static_cache_control, :session_options,
                     :time_zone, :reload_classes_only_on_change,
-                    :beginning_of_week, :filter_redirect
+                    :beginning_of_week, :filter_redirect, :x
 
       attr_writer :log_level
       attr_reader :encoding
@@ -48,6 +48,7 @@ module Rails
         @eager_load                    = nil
         @secret_token                  = nil
         @secret_key_base               = nil
+        @x                             = Custom.new
 
         @assets = ActiveSupport::OrderedOptions.new
         @assets.enabled                  = true
@@ -92,9 +93,10 @@ module Rails
       # Loads and returns the entire raw configuration of database from
       # values stored in `config/database.yml`.
       def database_configuration
-        yaml = Pathname.new(paths["config/database"].existent.first || "")
+        path = paths["config/database"].existent.first
+        yaml = Pathname.new(path) if path
 
-        config = if yaml.exist?
+        config = if yaml && yaml.exist?
           require "yaml"
           require "erb"
           YAML.load(ERB.new(yaml.read).result) || {}
@@ -103,7 +105,7 @@ module Rails
           # by Active Record.
           {}
         else
-          raise "Could not load database configuration. No such file - #{yaml}"
+          raise "Could not load database configuration. No such file - #{paths["config/database"].instance_variable_get(:@paths)}"
         end
 
         config
@@ -116,7 +118,7 @@ module Rails
       end
 
       def log_level
-        @log_level ||= Rails.env.production? ? :info : :debug
+        @log_level ||= :debug
       end
 
       def colorize_logging
@@ -154,6 +156,23 @@ module Rails
       def annotations
         SourceAnnotationExtractor::Annotation
       end
+
+      private
+        class Custom #:nodoc:
+          def initialize
+            @configurations = Hash.new
+          end
+
+          def method_missing(method, *args)
+            if method =~ /=$/
+              @configurations[$`.to_sym] = args.first
+            else
+              @configurations.fetch(method) {
+                @configurations[method] = ActiveSupport::OrderedOptions.new
+              }
+            end
+          end
+        end
     end
   end
 end

@@ -7,6 +7,7 @@ module Rails
       def initialize(*) # :nodoc:
         super
         @in_group = nil
+        @after_bundle_callbacks = []
       end
 
       # Adds an entry into +Gemfile+ for the supplied gem.
@@ -232,6 +233,16 @@ module Rails
         log File.read(find_in_source_paths(path))
       end
 
+      # Registers a callback to be executed after bundle and spring binstubs
+      # have run.
+      #
+      #   after_bundle do
+      #     git add: '.'
+      #   end
+      def after_bundle(&block)
+        @after_bundle_callbacks << block
+      end
+
       protected
 
         # Define log for backwards compatibility. If just one argument is sent,
@@ -257,11 +268,13 @@ module Rails
 
         # Surround string with single quotes if there is no quotes.
         # Otherwise fall back to double quotes
-        def quote(str)
-          if str.include?("'")
-            str.inspect
+        def quote(value)
+          return value.inspect unless value.is_a? String
+
+          if value.include?("'")
+            value.inspect
           else
-            "'#{str}'"
+            "'#{value}'"
           end
         end
     end

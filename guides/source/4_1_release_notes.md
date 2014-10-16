@@ -8,10 +8,10 @@ Highlights in Rails 4.1:
 * Action Pack variants
 * Action Mailer previews
 
-These release notes cover only the major changes. To know about various bug
-fixes and changes, please refer to the change logs or check out the
-[list of commits](https://github.com/rails/rails/commits/master) in the main
-Rails repository on GitHub.
+These release notes cover only the major changes. To learn about various bug
+fixes and changes, please refer to the change logs or check out the [list of
+commits](https://github.com/rails/rails/commits/4-1-stable) in the main Rails
+repository on GitHub.
 
 --------------------------------------------------------------------------------
 
@@ -157,7 +157,7 @@ By default, these preview classes live in `test/mailers/previews`.
 This can be configured using the `preview_path` option.
 
 See its
-[documentation](http://api.rubyonrails.org/v4.1.0/classes/ActionMailer/Base.html)
+[documentation](http://api.rubyonrails.org/v4.1.0/classes/ActionMailer/Base.html#class-ActionMailer::Base-label-Previewing+emails)
 for a detailed write up.
 
 ### Active Record enums

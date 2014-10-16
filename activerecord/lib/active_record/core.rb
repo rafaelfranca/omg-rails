@@ -16,7 +16,6 @@ module ActiveRecord
       mattr_accessor :logger, instance_writer: false
 
       ##
-      # :singleton-method:
       # Contains the database configuration - as is typically stored in config/database.yml -
       # as a Hash.
       #
@@ -108,6 +107,11 @@ module ActiveRecord
     end
 
     module ClassMethods
+      def allocate
+        define_attribute_methods
+        super
+      end
+
       def initialize_find_by_cache
         self.find_by_statement_cache = {}.extend(Mutex_m)
       end
@@ -120,6 +124,8 @@ module ActiveRecord
       def find(*ids)
         # We don't have cache keys for this stuff yet
         return super unless ids.length == 1
+        # Allow symbols to super to maintain compatibility for deprecated finders until Rails 5
+        return super if ids.first.kind_of?(Symbol)
         return super if block_given? ||
                         primary_key.nil? ||
                         default_scopes.any? ||
@@ -147,13 +153,17 @@ module ActiveRecord
       end
 
       def find_by(*args)
-        return super if current_scope || args.length > 1 || reflect_on_all_aggregations.any?
+        return super if current_scope || !(Hash === args.first) || reflect_on_all_aggregations.any?
+        return super if default_scopes.any?
 
         hash = args.first
 
         return super if hash.values.any? { |v|
           v.nil? || Array === v || Hash === v
         }
+
+        # We can't cache Post.find_by(author: david) ...yet
+        return super unless hash.keys.all? { |k| columns_hash.has_key?(k.to_s) }
 
         key  = hash.keys
 
@@ -173,9 +183,11 @@ module ActiveRecord
         end
       end
 
-      def initialize_generated_modules
-        super
+      def find_by!(*args)
+        find_by(*args) or raise RecordNotFound.new("Couldn't find #{name}")
+      end
 
+      def initialize_generated_modules
         generated_association_methods
       end
 
@@ -249,14 +261,7 @@ module ActiveRecord
     #   # Instantiates a single new object
     #   User.new(first_name: 'Jamie')
     def initialize(attributes = nil, options = {})
-      defaults = {}
-      self.class.raw_column_defaults.each do |k, v|
-        default = v.duplicable? ? v.dup : v
-        defaults[k] = Attribute.from_database(default, type_for_attribute(k))
-      end
-
-      @attributes = defaults
-      @column_types = self.class.column_types
+      @attributes = self.class.default_attributes.dup
 
       init_internals
       initialize_internals_callback
@@ -267,7 +272,7 @@ module ActiveRecord
       init_attributes(attributes, options) if attributes
 
       yield self if block_given?
-      run_callbacks :initialize unless _initialize_callbacks.empty?
+      run_initialize_callbacks
     end
 
     # Initialize an empty model object from +coder+. +coder+ must contain
@@ -282,7 +287,6 @@ module ActiveRecord
     #   post.title # => 'hello world'
     def init_with(coder)
       @attributes = coder['attributes']
-      @column_types = self.class.column_types
 
       init_internals
 
@@ -290,8 +294,8 @@ module ActiveRecord
 
       self.class.define_attribute_methods
 
-      run_callbacks :find
-      run_callbacks :initialize
+      run_find_callbacks
+      run_initialize_callbacks
 
       self
     end
@@ -324,11 +328,10 @@ module ActiveRecord
 
     ##
     def initialize_dup(other) # :nodoc:
-      pk = self.class.primary_key
-      @attributes = other.clone_attributes
-      @attributes[pk] = Attribute.from_database(nil, type_for_attribute(pk))
+      @attributes = @attributes.dup
+      @attributes.reset(self.class.primary_key)
 
-      run_callbacks(:initialize) unless _initialize_callbacks.empty?
+      run_initialize_callbacks
 
       @aggregation_cache = {}
       @association_cache = {}
@@ -524,8 +527,7 @@ module ActiveRecord
     end
 
     def init_internals
-      pk = self.class.primary_key
-      @attributes[pk] ||= Attribute.from_database(nil, type_for_attribute(pk))
+      @attributes.ensure_initialized(self.class.primary_key)
 
       @aggregation_cache        = {}
       @association_cache        = {}

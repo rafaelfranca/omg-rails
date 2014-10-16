@@ -302,7 +302,7 @@ class AssetTagHelperTest < ActionView::TestCase
   def test_autodiscovery_link_tag_with_unknown_type
     result = auto_discovery_link_tag(:xml, '/feed.xml', :type => 'application/xml')
     expected = %(<link href="/feed.xml" rel="alternate" title="XML" type="application/xml" />)
-    assert_equal expected, result
+    assert_dom_equal expected, result
   end
 
   def test_asset_path_tag
@@ -535,6 +535,17 @@ class AssetTagHelperTest < ActionView::TestCase
     assert_equal copy, source
   end
 
+  class PlaceholderImage
+    def blank?; true; end
+    def to_s; 'no-image-yet.png'; end
+  end
+  def test_image_tag_with_blank_placeholder
+    assert_equal '<img alt="" src="/images/no-image-yet.png" />', image_tag(PlaceholderImage.new, alt: "")
+  end
+  def test_image_path_with_blank_placeholder
+    assert_equal '/images/no-image-yet.png', image_path(PlaceholderImage.new)
+  end
+
   def test_image_path_with_asset_host_proc_returning_nil
     @controller.config.asset_host = Proc.new do |source|
       unless source.end_with?("tiff")
@@ -544,6 +555,14 @@ class AssetTagHelperTest < ActionView::TestCase
 
     assert_equal "/images/file.tiff", image_path("file.tiff")
     assert_equal "http://cdn.example.com/images/file.png", image_path("file.png")
+  end
+
+  def test_image_url_with_asset_host_proc_returning_nil
+    @controller.config.asset_host = Proc.new { nil }
+    @controller.request = Struct.new(:base_url, :script_name).new("http://www.example.com", nil)
+
+    assert_equal "/images/rails.png", image_path("rails.png")
+    assert_equal "http://www.example.com/images/rails.png", image_url("rails.png")
   end
 
   def test_caching_image_path_with_caching_and_proc_asset_host_using_request

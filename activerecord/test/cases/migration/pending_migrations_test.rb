@@ -6,16 +6,19 @@ module ActiveRecord
     class PendingMigrationsTest < ActiveRecord::TestCase
       def setup
         super
-        @connection = MiniTest::Mock.new
-        @app = MiniTest::Mock.new
-        @pending = CheckPending.new(@app, @connection)
+        @connection = Minitest::Mock.new
+        @app = Minitest::Mock.new
+        conn = @connection
+        @pending = Class.new(CheckPending) {
+          define_method(:connection) { conn }
+        }.new(@app)
         @pending.instance_variable_set :@last_check, -1 # Force checking
       end
 
       def teardown
-        super
         assert @connection.verify
         assert @app.verify
+        super
       end
 
       def test_errors_if_pending

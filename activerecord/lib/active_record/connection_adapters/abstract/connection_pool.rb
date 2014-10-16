@@ -234,7 +234,7 @@ module ActiveRecord
 
         @spec = spec
 
-        @checkout_timeout = spec.config[:checkout_timeout] || 5
+        @checkout_timeout = (spec.config[:checkout_timeout] && spec.config[:checkout_timeout].to_f) || 5
         @reaper  = Reaper.new self, spec.config[:reaping_frequency]
         @reaper.run
 
@@ -360,11 +360,11 @@ module ActiveRecord
         synchronize do
           owner = conn.owner
 
-          conn.run_callbacks :checkin do
+          conn.run_checkin_callbacks do
             conn.expire
           end
 
-          release conn, owner
+          release owner
 
           @available.add conn
         end
@@ -377,7 +377,7 @@ module ActiveRecord
           @connections.delete conn
           @available.delete conn
 
-          release conn, conn.owner
+          release conn.owner
 
           @available.add checkout_new_connection if @available.any_waiting?
         end
@@ -425,7 +425,7 @@ module ActiveRecord
         end
       end
 
-      def release(conn, owner)
+      def release(owner)
         thread_id = owner.object_id
 
         @reserved_connections.delete thread_id
@@ -449,7 +449,7 @@ module ActiveRecord
       end
 
       def checkout_and_verify(c)
-        c.run_callbacks :checkout do
+        c.run_checkout_callbacks do
           c.verify!
         end
         c
@@ -462,23 +462,44 @@ module ActiveRecord
     #
     # For example, suppose that you have 5 models, with the following hierarchy:
     #
-    #  |
-    #  +-- Book
-    #  |    |
-    #  |    +-- ScaryBook
-    #  |    +-- GoodBook
-    #  +-- Author
-    #  +-- BankAccount
+    #   class Author < ActiveRecord::Base
+    #   end
     #
-    # Suppose that Book is to connect to a separate database (i.e. one other
-    # than the default database). Then Book, ScaryBook and GoodBook will all use
-    # the same connection pool. Likewise, Author and BankAccount will use the
-    # same connection pool. However, the connection pool used by Author/BankAccount
-    # is not the same as the one used by Book/ScaryBook/GoodBook.
+    #   class BankAccount < ActiveRecord::Base
+    #   end
     #
-    # Normally there is only a single ConnectionHandler instance, accessible via
-    # ActiveRecord::Base.connection_handler. Active Record models use this to
-    # determine the connection pool that they should use.
+    #   class Book < ActiveRecord::Base
+    #     establish_connection "library_db"
+    #   end
+    #
+    #   class ScaryBook < Book
+    #   end
+    #
+    #   class GoodBook < Book
+    #   end
+    #
+    # And a database.yml that looked like this:
+    #
+    #   development:
+    #     database: my_application
+    #     host: localhost
+    #
+    #   library_db:
+    #     database: library
+    #     host: some.library.org
+    #
+    # Your primary database in the development environment is "my_application"
+    # but the Book model connects to a separate database called "library_db"
+    # (this can even be a database on a different machine).
+    #
+    # Book, ScaryBook and GoodBook will all use the same connection pool to
+    # "library_db" while Author, BankAccount, and any other models you create
+    # will use the default connection pool to "my_application".
+    #
+    # The various connection pools are managed by a single instance of
+    # ConnectionHandler accessible via ActiveRecord::Base.connection_handler.
+    # All Active Record models use this handler to determine the connection pool that they
+    # should use.
     class ConnectionHandler
       def initialize
         # These caches are keyed by klass.name, NOT klass. Keying them by klass
@@ -619,7 +640,7 @@ module ActiveRecord
       end
 
       def call(env)
-        testing = env.key?('rack.test')
+        testing = env['rack.test']
 
         response = @app.call(env)
         response[2] = ::Rack::BodyProxy.new(response[2]) do

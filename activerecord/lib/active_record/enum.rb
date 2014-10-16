@@ -69,12 +69,12 @@ module ActiveRecord
   #
   # Where conditions on an enum attribute must use the ordinal value of an enum.
   module Enum
-    def self.extended(base)
+    def self.extended(base) # :nodoc:
       base.class_attribute(:defined_enums)
       base.defined_enums = {}
     end
 
-    def inherited(base)
+    def inherited(base) # :nodoc:
       base.defined_enums = defined_enums.deep_dup
       super
     end
@@ -145,11 +145,11 @@ module ActiveRecord
                   value = read_attribute(attr_name)
                   if attribute_changed?(attr_name)
                     if mapping[old] == value
-                      changed_attributes.delete(attr_name)
+                      clear_attribute_changes([attr_name])
                     end
                   else
                     if old != value
-                      changed_attributes[attr_name] = mapping.key old
+                      set_attribute_was(attr_name, mapping.key(old))
                     end
                   end
                 else

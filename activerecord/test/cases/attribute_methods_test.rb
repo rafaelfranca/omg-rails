@@ -143,7 +143,11 @@ class AttributeMethodsTest < ActiveRecord::TestCase
 
   # Syck calls respond_to? before actually calling initialize
   def test_respond_to_with_allocated_object
-    topic = Topic.allocate
+    klass = Class.new(ActiveRecord::Base) do
+      self.table_name = 'topics'
+    end
+
+    topic = klass.allocate
     assert !topic.respond_to?("nothingness")
     assert !topic.respond_to?(:nothingness)
     assert_respond_to topic, "title"
@@ -251,6 +255,15 @@ class AttributeMethodsTest < ActiveRecord::TestCase
     return true if current_adapter?(:DB2Adapter)
 
     assert_equal @loaded_fixtures['computers']['workstation'].to_hash, Computer.first.attributes
+  end
+
+  def test_attributes_without_primary_key
+    klass = Class.new(ActiveRecord::Base) do
+      self.table_name = 'developers_projects'
+    end
+
+    assert_equal klass.column_names, klass.new.attributes.keys
+    assert_not klass.new.has_attribute?('id')
   end
 
   def test_hashes_not_mangled
@@ -668,6 +681,14 @@ class AttributeMethodsTest < ActiveRecord::TestCase
     end
   end
 
+  def test_yaml_dumping_record_with_time_zone_aware_attribute
+    in_time_zone "Pacific Time (US & Canada)" do
+      record = Topic.new(id: 1)
+      record.written_on = "Jan 01 00:00:00 2014"
+      assert_equal record, YAML.load(YAML.dump(record))
+    end
+  end
+
   def test_setting_time_zone_conversion_for_attributes_should_write_value_on_class_variable
     Topic.skip_time_zone_conversion_for_attributes = [:field_a]
     Minimalistic.skip_time_zone_conversion_for_attributes = [:field_b]
@@ -713,13 +734,13 @@ class AttributeMethodsTest < ActiveRecord::TestCase
     assert_raise(ActiveRecord::UnknownAttributeError) { @target.new.attributes = { :title => "Ants in pants" } }
   end
 
-  def test_bulk_update_raise_unknown_attribute_errro
+  def test_bulk_update_raise_unknown_attribute_error
     error = assert_raises(ActiveRecord::UnknownAttributeError) {
       @target.new(:hello => "world")
     }
-    assert @target, error.record
-    assert "hello", error.attribute
-    assert "unknown attribute: hello", error.message
+    assert_instance_of @target, error.record
+    assert_equal "hello", error.attribute
+    assert_equal "unknown attribute: hello", error.message
   end
 
   def test_methods_override_in_multi_level_subclass
@@ -797,6 +818,24 @@ class AttributeMethodsTest < ActiveRecord::TestCase
     assert_equal "lol", topic.author_name
   end
 
+  def test_inherited_custom_accessors_with_reserved_names
+    klass = Class.new(ActiveRecord::Base) do
+      self.table_name = 'computers'
+      self.abstract_class = true
+      def system; "omg"; end
+      def system=(val); self.developer = val; end
+    end
+
+    subklass = Class.new(klass)
+    [klass, subklass].each(&:define_attribute_methods)
+
+    computer = subklass.find(1)
+    assert_equal "omg", computer.system
+
+    computer.developer = 99
+    assert_equal 99, computer.developer
+  end
+
   def test_on_the_fly_super_invokable_generated_attribute_methods_via_method_missing
     klass = new_topic_like_ar_class do
       def title
@@ -829,6 +868,37 @@ class AttributeMethodsTest < ActiveRecord::TestCase
     assert_raise(NoMethodError) do
       klass.new.some_method_that_is_not_on_super
     end
+  end
+
+  def test_attribute_method?
+    assert @target.attribute_method?(:title)
+    assert @target.attribute_method?(:title=)
+    assert_not @target.attribute_method?(:wibble)
+  end
+
+  def test_attribute_method_returns_false_if_table_does_not_exist
+    @target.table_name = 'wibble'
+    assert_not @target.attribute_method?(:title)
+  end
+
+  def test_attribute_names_on_new_record
+    model = @target.new
+
+    assert_equal @target.column_names, model.attribute_names
+  end
+
+  def test_attribute_names_on_queried_record
+    model = @target.last!
+
+    assert_equal @target.column_names, model.attribute_names
+  end
+
+  def test_attribute_names_with_custom_select
+    model = @target.select('id').last!
+
+    assert_equal ['id'], model.attribute_names
+    # Sanity check, make sure other columns exist
+    assert_not_equal ['id'], @target.column_names
   end
 
   private

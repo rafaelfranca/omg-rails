@@ -6,16 +6,17 @@ module ActionDispatch
     cattr_accessor :rescue_responses
     @@rescue_responses = Hash.new(:internal_server_error)
     @@rescue_responses.merge!(
-      'ActionController::RoutingError'             => :not_found,
-      'AbstractController::ActionNotFound'         => :not_found,
-      'ActionController::MethodNotAllowed'         => :method_not_allowed,
-      'ActionController::UnknownHttpMethod'        => :method_not_allowed,
-      'ActionController::NotImplemented'           => :not_implemented,
-      'ActionController::UnknownFormat'            => :not_acceptable,
-      'ActionController::InvalidAuthenticityToken' => :unprocessable_entity,
-      'ActionDispatch::ParamsParser::ParseError'   => :bad_request,
-      'ActionController::BadRequest'               => :bad_request,
-      'ActionController::ParameterMissing'         => :bad_request
+      'ActionController::RoutingError'                => :not_found,
+      'AbstractController::ActionNotFound'            => :not_found,
+      'ActionController::MethodNotAllowed'            => :method_not_allowed,
+      'ActionController::UnknownHttpMethod'           => :method_not_allowed,
+      'ActionController::NotImplemented'              => :not_implemented,
+      'ActionController::UnknownFormat'               => :not_acceptable,
+      'ActionController::InvalidAuthenticityToken'    => :unprocessable_entity,
+      'ActionController::InvalidCrossOriginRequest'   => :unprocessable_entity,
+      'ActionDispatch::ParamsParser::ParseError'      => :bad_request,
+      'ActionController::BadRequest'                  => :bad_request,
+      'ActionController::ParameterMissing'            => :bad_request
     )
 
     cattr_accessor :rescue_templates
@@ -61,12 +62,15 @@ module ActionDispatch
     end
 
     def source_extract
-      if application_trace && trace = application_trace.first
-        file, line, _ = trace.split(":")
-        @file = file
-        @line_number = line.to_i
-        source_fragment(@file, @line_number)
-      end
+      exception.backtrace.map do |trace|
+        file, line = trace.split(":")
+        line_number = line.to_i
+        {
+          code: source_fragment(file, line_number),
+          file: file,
+          line_number: line_number
+        }
+      end if exception.backtrace
     end
 
     private
@@ -110,7 +114,7 @@ module ActionDispatch
     def expand_backtrace
       @exception.backtrace.unshift(
         @exception.to_s.split("\n")
-      ).flatten! 
+      ).flatten!
     end
   end
 end

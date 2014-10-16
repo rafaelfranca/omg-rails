@@ -41,6 +41,7 @@ class Post < ActiveRecord::Base
   scope :with_tags, -> { preload(:taggings) }
 
   scope :tagged_with, ->(id) { joins(:taggings).where(taggings: { tag_id: id }) }
+  scope :tagged_with_comment, ->(comment) { joins(:taggings).where(taggings: { comment: comment }) }
 
   has_many   :comments do
     def find_most_recent
@@ -88,7 +89,7 @@ class Post < ActiveRecord::Base
   has_and_belongs_to_many :categories
   has_and_belongs_to_many :special_categories, :join_table => "categories_posts", :association_foreign_key => 'category_id'
 
-  has_many :taggings, :as => :taggable
+  has_many :taggings, :as => :taggable, :counter_cache => :tags_count
   has_many :tags, :through => :taggings do
     def add_joins_and_select
       select('tags.*, authors.id as author_id')
@@ -216,4 +217,19 @@ class PostThatLoadsCommentsInAnAfterSaveHook < ActiveRecord::Base
   after_save do |post|
     post.comments.load
   end
+end
+
+class PostWithAfterCreateCallback < ActiveRecord::Base
+  self.table_name = 'posts'
+  has_many :comments, foreign_key: :post_id
+
+  after_create do |post|
+    update_attribute(:author_id, comments.first.id)
+  end
+end
+
+class PostWithCommentWithDefaultScopeReferencesAssociation < ActiveRecord::Base
+  self.table_name = 'posts'
+  has_many :comment_with_default_scope_references_associations, foreign_key: :post_id
+  has_one :first_comment, class_name: "CommentWithDefaultScopeReferencesAssociation", foreign_key: :post_id
 end

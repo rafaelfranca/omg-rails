@@ -4,7 +4,7 @@ require "cases/helper"
 require 'active_record/base'
 require 'active_record/connection_adapters/postgresql_adapter'
 
-class PostgresqlJSONTest < ActiveRecord::TestCase
+module PostgresqlJSONSharedTestCases
   class JsonDataType < ActiveRecord::Base
     self.table_name = 'json_data_type'
 
@@ -16,8 +16,8 @@ class PostgresqlJSONTest < ActiveRecord::TestCase
     begin
       @connection.transaction do
         @connection.create_table('json_data_type') do |t|
-          t.json 'payload', :default => {}
-          t.json 'settings'
+          t.public_send column_type, 'payload', default: {} # t.json 'payload', default: {}
+          t.public_send column_type, 'settings'             # t.json 'settings'
         end
       end
     rescue ActiveRecord::StatementInvalid
@@ -26,22 +26,21 @@ class PostgresqlJSONTest < ActiveRecord::TestCase
     @column = JsonDataType.columns_hash['payload']
   end
 
-  teardown do
+  def teardown
     @connection.execute 'drop table if exists json_data_type'
   end
 
   def test_column
     column = JsonDataType.columns_hash["payload"]
-    assert_equal :json, column.type
-    assert_equal "json", column.sql_type
+    assert_equal column_type, column.type
+    assert_equal column_type.to_s, column.sql_type
     assert_not column.number?
-    assert_not column.text?
     assert_not column.binary?
     assert_not column.array
   end
 
   def test_default
-    @connection.add_column 'json_data_type', 'permissions', :json, default: '{"users": "read", "posts": ["read", "write"]}'
+    @connection.add_column 'json_data_type', 'permissions', column_type, default: '{"users": "read", "posts": ["read", "write"]}'
     JsonDataType.reset_column_information
 
     assert_equal({"users"=>"read", "posts"=>["read", "write"]}, JsonDataType.column_defaults['permissions'])
@@ -53,11 +52,11 @@ class PostgresqlJSONTest < ActiveRecord::TestCase
   def test_change_table_supports_json
     @connection.transaction do
       @connection.change_table('json_data_type') do |t|
-        t.json 'users', default: '{}'
+        t.public_send column_type, 'users', default: '{}' # t.json 'users', default: '{}'
       end
       JsonDataType.reset_column_information
       column = JsonDataType.columns_hash['users']
-      assert_equal :json, column.type
+      assert_equal column_type, column.type
 
       raise ActiveRecord::Rollback # reset the schema change
     end
@@ -77,7 +76,7 @@ class PostgresqlJSONTest < ActiveRecord::TestCase
     column = JsonDataType.columns_hash["payload"]
 
     data = "{\"a_key\":\"a_value\"}"
-    hash = column.class.string_to_json data
+    hash = column.type_cast_from_database(data)
     assert_equal({'a_key' => 'a_value'}, hash)
     assert_equal({'a_key' => 'a_value'}, column.type_cast_from_database(data))
 
@@ -155,16 +154,6 @@ class PostgresqlJSONTest < ActiveRecord::TestCase
     assert_equal "320×480", y.resolution
   end
 
-  def test_update_all
-    json = JsonDataType.create! payload: { "one" => "two" }
-
-    JsonDataType.update_all payload: { "three" => "four" }
-    assert_equal({ "three" => "four" }, json.reload.payload)
-
-    JsonDataType.update_all payload: { }
-    assert_equal({ }, json.reload.payload)
-  end
-
   def test_changes_in_place
     json = JsonDataType.new
     assert_not json.changed?
@@ -184,5 +173,21 @@ class PostgresqlJSONTest < ActiveRecord::TestCase
 
     assert_equal({ 'one' => 'two', 'three' => 'four' }, json.payload)
     assert_not json.changed?
+  end
+end
+
+class PostgresqlJSONTest < ActiveRecord::TestCase
+  include PostgresqlJSONSharedTestCases
+
+  def column_type
+    :json
+  end
+end
+
+class PostgresqlJSONBTest < ActiveRecord::TestCase
+  include PostgresqlJSONSharedTestCases
+
+  def column_type
+    :jsonb
   end
 end

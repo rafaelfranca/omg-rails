@@ -66,7 +66,7 @@ module ActiveRecord
     # * <tt>:sslcipher</tt> - Necessary to use MySQL with an SSL connection.
     #
     class MysqlAdapter < AbstractMysqlAdapter
-      ADAPTER_NAME = 'MySQL'
+      ADAPTER_NAME = 'MySQL'.freeze
 
       class StatementPool < ConnectionAdapters::StatementPool
         def initialize(connection, max = 1000)
@@ -263,7 +263,7 @@ module ActiveRecord
       end
 
       module Fields # :nodoc:
-        class DateTime < Type::DateTime
+        class DateTime < Type::DateTime # :nodoc:
           def cast_value(value)
             if Mysql::Time === value
               new_time(
@@ -280,7 +280,7 @@ module ActiveRecord
           end
         end
 
-        class Time < Type::Time
+        class Time < Type::Time # :nodoc:
           def cast_value(value)
             if Mysql::Time === value
               new_time(
@@ -470,9 +470,9 @@ module ActiveRecord
         rows
       end
 
-      # Returns the version of the connected MySQL server.
-      def version
-        @version ||= @connection.server_info.scan(/^(\d+)\.(\d+)\.(\d+)/).flatten.map { |v| v.to_i }
+      # Returns the full version of the connected MySQL server.
+      def full_version
+        @full_version ||= @connection.server_info
       end
 
       def set_field_encoding field_name

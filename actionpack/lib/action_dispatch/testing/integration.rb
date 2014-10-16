@@ -3,6 +3,7 @@ require 'uri'
 require 'active_support/core_ext/kernel/singleton_class'
 require 'active_support/core_ext/object/try'
 require 'rack/test'
+require 'minitest'
 
 module ActionDispatch
   module Integration #:nodoc:
@@ -188,8 +189,8 @@ module ActionDispatch
         # This makes app.url_for and app.foo_path available in the console
         if app.respond_to?(:routes)
           singleton_class.class_eval do
-            include app.routes.url_helpers if app.routes.respond_to?(:url_helpers)
-            include app.routes.mounted_helpers if app.routes.respond_to?(:mounted_helpers)
+            include app.routes.url_helpers
+            include app.routes.mounted_helpers
           end
         end
 
@@ -200,7 +201,7 @@ module ActionDispatch
         @url_options ||= default_url_options.dup.tap do |url_options|
           url_options.reverse_merge!(controller.url_options) if controller
 
-          if @app.respond_to?(:routes) && @app.routes.respond_to?(:default_url_options)
+          if @app.respond_to?(:routes)
             url_options.reverse_merge!(@app.routes.default_url_options)
           end
 
@@ -329,6 +330,7 @@ module ActionDispatch
          xml_http_request xhr get_via_redirect post_via_redirect).each do |method|
         define_method(method) do |*args|
           reset! unless integration_session
+          reset_template_assertion
           # reset the html_document variable, but only for new get/post calls
           @html_document = nil unless method == 'cookies' || method == 'assigns'
           integration_session.__send__(method, *args).tap do
@@ -492,6 +494,10 @@ module ActionDispatch
     def url_options
       reset! unless integration_session
       integration_session.url_options
+    end
+
+    def document_root_element
+      html_document
     end
   end
 end

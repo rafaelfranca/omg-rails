@@ -1,4 +1,3 @@
-
 module ActiveRecord
   # = Active Record Has Many Through Association
   module Associations
@@ -63,7 +62,15 @@ module ActiveRecord
         end
 
         save_through_record(record)
-        update_counter(1)
+        if has_cached_counter? && !through_reflection_updates_counter_cache?
+          ActiveSupport::Deprecation.warn \
+            "Automatic updating of counter caches on through associations has been " \
+            "deprecated, and will be removed in Rails 5.0. Instead, please set the " \
+            "appropriate counter_cache options on the has_many and belongs_to for " \
+            "your associations to #{through_reflection.name}."
+
+          update_counter_in_database(1)
+        end
         record
       end
 
@@ -93,7 +100,9 @@ module ActiveRecord
         end
 
         def through_scope_attributes
-          scope.where_values_hash(through_association.reflection.name.to_s).except!(through_association.reflection.foreign_key)
+          scope.where_values_hash(through_association.reflection.name.to_s).
+            except!(through_association.reflection.foreign_key,
+                    through_association.reflection.klass.inheritance_column)
         end
 
         def save_through_record(record)
@@ -150,7 +159,7 @@ module ActiveRecord
               count = scope.destroy_all.length
             else
               scope.to_a.each do |record|
-                record.run_callbacks :destroy
+                record.run_destroy_callbacks
               end
 
               arel = scope.arel
@@ -215,6 +224,11 @@ module ActiveRecord
         # NOTE - not sure that we can actually cope with inverses here
         def invertible_for?(record)
           false
+        end
+
+        def through_reflection_updates_counter_cache?
+          counter_name = cached_counter_attribute_name
+          inverse_updates_counter_named?(counter_name, through_reflection)
         end
     end
   end

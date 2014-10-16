@@ -20,15 +20,12 @@ class SecurePasswordTest < ActiveModel::TestCase
     ActiveModel::SecurePassword.min_cost = @original_min_cost
   end
 
-  test "create/update without validations" do
-    assert @visitor.valid?(:create), 'visitor should be valid'
-    assert @visitor.valid?(:update), 'visitor should be valid'
+  test "automatically include ActiveModel::Validations when validations are enabled" do
+    assert_respond_to @user, :valid?
+  end
 
-    @visitor.password = '123'
-    @visitor.password_confirmation = '456'
-
-    assert @visitor.valid?(:create), 'visitor should be valid'
-    assert @visitor.valid?(:update), 'visitor should be valid'
+  test "don't include ActiveModel::Validations when validations are disabled" do
+    assert_not_respond_to @visitor, :valid?
   end
 
   test "create a new user with validations and valid password/confirmation" do
@@ -40,6 +37,11 @@ class SecurePasswordTest < ActiveModel::TestCase
     @user.password = 'a' * 72
     @user.password_confirmation = 'a' * 72
 
+    assert @user.valid?(:create), 'user should be valid'
+  end
+
+  test "create a new user with validation and a spaces only password" do
+    @user.password = ' ' * 72
     assert @user.valid?(:create), 'user should be valid'
   end
 
@@ -106,6 +108,11 @@ class SecurePasswordTest < ActiveModel::TestCase
   test "updating an existing user with validation and a blank password" do
     @existing_user.password = ''
     assert @existing_user.valid?(:update), 'user should be valid'
+  end
+
+  test "updating an existing user with validation and a spaces only password" do
+    @user.password = ' ' * 72
+    assert @user.valid?(:update), 'user should be valid'
   end
 
   test "updating an existing user with validation and a blank password and password_confirmation" do

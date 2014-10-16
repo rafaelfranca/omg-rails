@@ -15,10 +15,10 @@ module ActiveRecord
 
         def test_type_cast_binary_encoding_without_logger
           @conn.extend(Module.new { def logger; end })
-          cast_type = Type::String.new
+          column = Column.new(nil, nil, Type::String.new)
           binary = SecureRandom.hex
           expected = binary.dup.encode!(Encoding::UTF_8)
-          assert_equal expected, @conn.type_cast(binary, cast_type)
+          assert_equal expected, @conn.type_cast(binary, column)
         end
 
         def test_type_cast_symbol
@@ -102,6 +102,13 @@ module ActiveRecord
             end
           }.new
           assert_raise(TypeError) { @conn.type_cast(quoted_id_obj, nil) }
+        end
+
+        def test_quoting_binary_strings
+          value = "hello".encode('ascii-8bit')
+          column = Column.new(nil, 1, SQLite3String.new)
+
+          assert_equal "'hello'", @conn.quote(value, column)
         end
       end
     end

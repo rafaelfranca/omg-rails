@@ -169,7 +169,19 @@ class DirtyTest < ActiveRecord::TestCase
     pirate = Pirate.create!(:catchphrase => 'Yar!')
     pirate.catchphrase = 'Ahoy!'
 
-    pirate.reset_catchphrase!
+    assert_deprecated do
+      pirate.reset_catchphrase!
+    end
+    assert_equal "Yar!", pirate.catchphrase
+    assert_equal Hash.new, pirate.changes
+    assert !pirate.catchphrase_changed?
+  end
+
+  def test_restore_attribute!
+    pirate = Pirate.create!(:catchphrase => 'Yar!')
+    pirate.catchphrase = 'Ahoy!'
+
+    pirate.restore_catchphrase!
     assert_equal "Yar!", pirate.catchphrase
     assert_equal Hash.new, pirate.changes
     assert !pirate.catchphrase_changed?
@@ -309,16 +321,14 @@ class DirtyTest < ActiveRecord::TestCase
   def test_attribute_will_change!
     pirate = Pirate.create!(:catchphrase => 'arr')
 
-    pirate.catchphrase << ' matey'
     assert !pirate.catchphrase_changed?
-
     assert pirate.catchphrase_will_change!
     assert pirate.catchphrase_changed?
-    assert_equal ['arr matey', 'arr matey'], pirate.catchphrase_change
+    assert_equal ['arr', 'arr'], pirate.catchphrase_change
 
-    pirate.catchphrase << '!'
+    pirate.catchphrase << ' matey!'
     assert pirate.catchphrase_changed?
-    assert_equal ['arr matey', 'arr matey!'], pirate.catchphrase_change
+    assert_equal ['arr', 'arr matey!'], pirate.catchphrase_change
   end
 
   def test_association_assignment_changes_foreign_key
@@ -400,7 +410,7 @@ class DirtyTest < ActiveRecord::TestCase
   def test_dup_objects_should_not_copy_dirty_flag_from_creator
     pirate = Pirate.create!(:catchphrase => "shiver me timbers")
     pirate_dup = pirate.dup
-    pirate_dup.reset_catchphrase!
+    pirate_dup.restore_catchphrase!
     pirate.catchphrase = "I love Rum"
     assert pirate.catchphrase_changed?
     assert !pirate_dup.catchphrase_changed?
@@ -649,6 +659,43 @@ class DirtyTest < ActiveRecord::TestCase
 
     model = model_class.new(foo: '1')
     assert_not model.foo_changed?
+  end
+
+  test "in place mutation detection" do
+    pirate = Pirate.create!(catchphrase: "arrrr")
+    pirate.catchphrase << " matey!"
+
+    assert pirate.catchphrase_changed?
+    expected_changes = {
+      "catchphrase" => ["arrrr", "arrrr matey!"]
+    }
+    assert_equal(expected_changes, pirate.changes)
+    assert_equal("arrrr", pirate.catchphrase_was)
+    assert pirate.catchphrase_changed?(from: "arrrr")
+    assert_not pirate.catchphrase_changed?(from: "anything else")
+    assert pirate.changed_attributes.include?(:catchphrase)
+
+    pirate.save!
+    pirate.reload
+
+    assert_equal "arrrr matey!", pirate.catchphrase
+    assert_not pirate.changed?
+  end
+
+  test "in place mutation for binary" do
+    klass = Class.new(ActiveRecord::Base) do
+      self.table_name = :binaries
+      serialize :data
+    end
+
+    klass.create!(data: "foo")
+    binary = klass.last
+
+    assert_not binary.changed?
+
+    binary.data << "bar"
+
+    assert binary.changed?
   end
 
   private

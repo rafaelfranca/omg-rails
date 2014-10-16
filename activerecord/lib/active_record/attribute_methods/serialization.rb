@@ -8,11 +8,8 @@ module ActiveRecord
         # object, and retrieved as the same object, then specify the name of that
         # attribute using this method and it will be handled automatically. The
         # serialization is done through YAML. If +class_name+ is specified, the
-        # serialized object must be of that class on retrieval or
-        # <tt>SerializationTypeMismatch</tt> will be raised.
-        #
-        # A notable side effect of serialized attributes is that the model will
-        # be updated on every save, even if it is not dirty.
+        # serialized object must be of that class on assignment and retrieval.
+        # Otherwise <tt>SerializationTypeMismatch</tt> will be raised.
         #
         # ==== Parameters
         #
@@ -37,7 +34,12 @@ module ActiveRecord
         #     serialize :preferences, Hash
         #   end
         def serialize(attr_name, class_name_or_coder = Object)
-          coder = if [:load, :dump].all? { |x| class_name_or_coder.respond_to?(x) }
+          # When ::JSON is used, force it to go through the Active Support JSON encoder
+          # to ensure special objects (e.g. Active Record models) are dumped correctly
+          # using the #as_json hook.
+          coder = if class_name_or_coder == ::JSON
+                    Coders::JSON
+                  elsif [:load, :dump].all? { |x| class_name_or_coder.respond_to?(x) }
                     class_name_or_coder
                   else
                     Coders::YAMLColumn.new(class_name_or_coder)
@@ -49,10 +51,9 @@ module ActiveRecord
         end
 
         def serialized_attributes
-          ActiveSupport::Deprecation.warn(<<-WARNING.strip_heredoc)
-            `serialized_attributes` is deprecated without replacement, and will
-            be removed in Rails 5.0.
-          WARNING
+          ActiveSupport::Deprecation.warn "`serialized_attributes` is deprecated " \
+            "without replacement, and will be removed in Rails 5.0."
+
           @serialized_attributes ||= Hash[
             columns.select { |t| t.cast_type.is_a?(Type::Serialized) }.map { |c|
               [c.name, c.cast_type.coder]

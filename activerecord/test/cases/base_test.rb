@@ -1347,14 +1347,32 @@ class BasicsTest < ActiveRecord::TestCase
   end
 
   def test_compute_type_no_method_error
-    ActiveSupport::Dependencies.stubs(:constantize).raises(NoMethodError)
+    ActiveSupport::Dependencies.stubs(:safe_constantize).raises(NoMethodError)
     assert_raises NoMethodError do
       ActiveRecord::Base.send :compute_type, 'InvalidModel'
     end
   end
 
+  def test_compute_type_on_undefined_method
+    error = nil
+    begin
+      Class.new(Author) do
+        alias_method :foo, :bar
+      end
+    rescue => e
+      error = e
+    end
+
+    ActiveSupport::Dependencies.stubs(:safe_constantize).raises(e)
+
+    exception = assert_raises NameError do
+      ActiveRecord::Base.send :compute_type, 'InvalidModel'
+    end
+    assert_equal error.message, exception.message
+  end
+
   def test_compute_type_argument_error
-    ActiveSupport::Dependencies.stubs(:constantize).raises(ArgumentError)
+    ActiveSupport::Dependencies.stubs(:safe_constantize).raises(ArgumentError)
     assert_raises ArgumentError do
       ActiveRecord::Base.send :compute_type, 'InvalidModel'
     end
@@ -1520,20 +1538,6 @@ class BasicsTest < ActiveRecord::TestCase
     company = Company.new
     company.description << "foo"
     assert_equal "", Company.new.description
-  end
-
-  ["find_by", "find_by!"].each do |meth|
-    test "#{meth} delegates to scoped" do
-      record = stub
-
-      scope = mock
-      scope.expects(meth).with(:foo, :bar).returns(record)
-
-      klass = Class.new(ActiveRecord::Base)
-      klass.stubs(:all => scope)
-
-      assert_equal record, klass.public_send(meth, :foo, :bar)
-    end
   end
 
   test "scoped can take a values hash" do

@@ -8,6 +8,7 @@ require 'active_support/core_ext/numeric/bytes'
 require 'active_support/core_ext/numeric/time'
 require 'active_support/core_ext/object/to_param'
 require 'active_support/core_ext/string/inflections'
+require 'active_support/deprecation'
 
 module ActiveSupport
   # See ActiveSupport::Cache::Store for documentation.
@@ -178,14 +179,16 @@ module ActiveSupport
         @silence = previous_silence
       end
 
-      # Set to +true+ if cache stores should be instrumented.
-      # Default is +false+.
+      # :deprecated:
       def self.instrument=(boolean)
-        Thread.current[:instrument_cache_store] = boolean
+        ActiveSupport::Deprecation.warn "ActiveSupport::Cache.instrument= is deprecated and will be removed in Rails 5. Instrumentation is now always on so you can safely stop using it."
+        true
       end
 
+      # :deprecated:
       def self.instrument
-        Thread.current[:instrument_cache_store] || false
+        ActiveSupport::Deprecation.warn "ActiveSupport::Cache.instrument is deprecated and will be removed in Rails 5. Instrumentation is now always on so you can safely stop using it."
+        true
       end
 
       # Fetches data from the cache, using the given key. If there is data in
@@ -234,7 +237,7 @@ module ActiveSupport
       # seconds. Because of extended life of the previous cache, other processes
       # will continue to use slightly stale data for a just a bit longer. In the
       # meantime that first process will go ahead and will write into cache the
-      # new value. After that all the processes will start getting new value.
+      # new value. After that all the processes will start getting the new value.
       # The key is to keep <tt>:race_condition_ttl</tt> small.
       #
       # If the process regenerating the entry errors out, the entry will be
@@ -539,13 +542,9 @@ module ActiveSupport
         def instrument(operation, key, options = nil)
           log(operation, key, options)
 
-          if self.class.instrument
-            payload = { :key => key }
-            payload.merge!(options) if options.is_a?(Hash)
-            ActiveSupport::Notifications.instrument("cache_#{operation}.active_support", payload){ yield(payload) }
-          else
-            yield(nil)
-          end
+          payload = { :key => key }
+          payload.merge!(options) if options.is_a?(Hash)
+          ActiveSupport::Notifications.instrument("cache_#{operation}.active_support", payload){ yield(payload) }
         end
 
         def log(operation, key, options = nil)

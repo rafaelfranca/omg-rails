@@ -254,7 +254,7 @@ class HasAndBelongsToManyAssociationsTest < ActiveRecord::TestCase
 
   def test_build
     devel = Developer.find(1)
-    proj = assert_no_queries { devel.projects.build("name" => "Projekt") }
+    proj = assert_no_queries(ignore_none: false) { devel.projects.build("name" => "Projekt") }
     assert !devel.projects.loaded?
 
     assert_equal devel.projects.last, proj
@@ -269,7 +269,7 @@ class HasAndBelongsToManyAssociationsTest < ActiveRecord::TestCase
 
   def test_new_aliased_to_build
     devel = Developer.find(1)
-    proj = assert_no_queries { devel.projects.new("name" => "Projekt") }
+    proj = assert_no_queries(ignore_none: false) { devel.projects.new("name" => "Projekt") }
     assert !devel.projects.loaded?
 
     assert_equal devel.projects.last, proj
@@ -503,7 +503,7 @@ class HasAndBelongsToManyAssociationsTest < ActiveRecord::TestCase
 
     developer = project.developers.first
 
-    assert_no_queries do
+    assert_no_queries(ignore_none: false) do
       assert project.developers.loaded?
       assert project.developers.include?(developer)
     end
@@ -824,7 +824,7 @@ class HasAndBelongsToManyAssociationsTest < ActiveRecord::TestCase
 
   def test_has_and_belongs_to_many_associations_on_new_records_use_null_relations
     projects = Developer.new.projects
-    assert_no_queries do
+    assert_no_queries(ignore_none: false) do
       assert_equal [], projects
       assert_equal [], projects.where(title: 'omg')
       assert_equal [], projects.pluck(:title)
@@ -860,13 +860,22 @@ class HasAndBelongsToManyAssociationsTest < ActiveRecord::TestCase
     assert_equal 'edges', Vertex.reflect_on_association(:sources).join_table
   end
 
-  def test_namespaced_habtm
+  def test_has_and_belongs_to_many_in_a_namespaced_model_pointing_to_a_namespaced_model
     magazine = Publisher::Magazine.create
     article = Publisher::Article.create
     magazine.articles << article
     magazine.save
 
     assert_includes magazine.articles, article
+  end
+
+  def test_has_and_belongs_to_many_in_a_namespaced_model_pointing_to_a_non_namespaced_model
+    article = Publisher::Article.create
+    tag = Tag.create
+    article.tags << tag
+    article.save
+
+    assert_includes article.tags, tag
   end
 
   def test_redefine_habtm

@@ -74,7 +74,7 @@ module ActiveRecord
     # In addition, default connection parameters of libpq can be set per environment variables.
     # See http://www.postgresql.org/docs/9.1/static/libpq-envars.html .
     class PostgreSQLAdapter < AbstractAdapter
-      ADAPTER_NAME = 'PostgreSQL'
+      ADAPTER_NAME = 'PostgreSQL'.freeze
 
       NATIVE_DATABASE_TYPES = {
         primary_key: "serial primary key",
@@ -94,6 +94,7 @@ module ActiveRecord
         int8range:   { name: "int8range" },
         binary:      { name: "bytea" },
         boolean:     { name: "boolean" },
+        bigint:      { name: "bigint" },
         xml:         { name: "xml" },
         tsvector:    { name: "tsvector" },
         hstore:      { name: "hstore" },
@@ -117,11 +118,6 @@ module ActiveRecord
       include PostgreSQL::SchemaStatements
       include PostgreSQL::DatabaseStatements
       include Savepoints
-
-      # Returns 'PostgreSQL' as adapter name for identification purposes.
-      def adapter_name
-        ADAPTER_NAME
-      end
 
       def schema_creation # :nodoc:
         PostgreSQL::SchemaCreation.new self
@@ -156,6 +152,14 @@ module ActiveRecord
       end
 
       def supports_transaction_isolation?
+        true
+      end
+
+      def supports_foreign_keys?
+        true
+      end
+
+      def supports_views?
         true
       end
 
@@ -252,6 +256,10 @@ module ActiveRecord
         @statements.clear
       end
 
+      def truncate(table_name, name = nil)
+        exec_query "TRUNCATE TABLE #{quote_table_name(table_name)}", name, []
+      end
+
       # Is this connection alive and ready for queries?
       def active?
         @connection.query 'SELECT 1'
@@ -306,10 +314,6 @@ module ActiveRecord
         self.client_min_messages = old
       end
 
-      def supports_insert_with_returning?
-        true
-      end
-
       def supports_ddl_transactions?
         true
       end
@@ -348,14 +352,13 @@ module ActiveRecord
         if supports_extensions?
           res = exec_query "SELECT EXISTS(SELECT * FROM pg_available_extensions WHERE name = '#{name}' AND installed_version IS NOT NULL) as enabled",
             'SCHEMA'
-          res.column_types['enabled'].type_cast_from_database res.rows.first.first
+          res.cast_values.first
         end
       end
 
       def extensions
         if supports_extensions?
-          res = exec_query "SELECT extname from pg_extension", "SCHEMA"
-          res.rows.map { |r| res.column_types['extname'].type_cast_from_database r.first }
+          exec_query("SELECT extname from pg_extension", "SCHEMA").cast_values
         else
           super
         end
@@ -382,6 +385,11 @@ module ActiveRecord
 
       def update_table_definition(table_name, base) #:nodoc:
         PostgreSQL::Table.new(table_name, base)
+      end
+
+      def lookup_cast_type(sql_type) # :nodoc:
+        oid = execute("SELECT #{quote(sql_type)}::regtype::oid", "SCHEMA").first['oid'].to_i
+        super(oid)
       end
 
       protected
@@ -447,10 +455,11 @@ module ActiveRecord
           m.register_type 'point', OID::Point.new
           m.register_type 'hstore', OID::Hstore.new
           m.register_type 'json', OID::Json.new
+          m.register_type 'jsonb', OID::Jsonb.new
           m.register_type 'cidr', OID::Cidr.new
           m.register_type 'inet', OID::Inet.new
           m.register_type 'uuid', OID::Uuid.new
-          m.register_type 'xml', OID::SpecializedString.new(:xml)
+          m.register_type 'xml', OID::Xml.new
           m.register_type 'tsvector', OID::SpecializedString.new(:tsvector)
           m.register_type 'macaddr', OID::SpecializedString.new(:macaddr)
           m.register_type 'citext', OID::SpecializedString.new(:citext)
@@ -565,7 +574,7 @@ module ActiveRecord
         end
 
         def exec_no_cache(sql, name, binds)
-          log(sql, name, binds) { @connection.async_exec(sql) }
+          log(sql, name, binds) { @connection.async_exec(sql, []) }
         end
 
         def exec_cache(sql, name, binds)

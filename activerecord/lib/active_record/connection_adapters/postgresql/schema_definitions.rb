@@ -64,6 +64,10 @@ module ActiveRecord
           column(name, :json, options)
         end
 
+        def jsonb(name, options = {})
+          column(name, :jsonb, options)
+        end
+
         def citext(name, options = {})
           column(name, :citext, options)
         end
@@ -127,12 +131,10 @@ module ActiveRecord
           column name, type, options
         end
 
-        def column(name, type = nil, options = {})
-          super
-          column = self[name]
+        def new_column_definition(name, type, options) # :nodoc:
+          column = super
           column.array = options[:array]
-
-          self
+          column
         end
 
         private

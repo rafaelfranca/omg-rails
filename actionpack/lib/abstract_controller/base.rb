@@ -164,6 +164,14 @@ module AbstractController
       _find_action_name(action_name).present?
     end
 
+    # Returns true if the given controller is capable of rendering
+    # a path. A subclass of +AbstractController::Base+
+    # may return false. An Email controller for example does not
+    # support paths, only full URLs.
+    def self.supports_path?
+      true
+    end
+
     private
 
       # Returns true if the name can be considered an action because
@@ -255,7 +263,7 @@ module AbstractController
 
       # Checks if the action name is valid and returns false otherwise.
       def _valid_action_name?(action_name)
-        action_name !~ Regexp.new(File::SEPARATOR)
+        !action_name.to_s.include? File::SEPARATOR
       end
   end
 end

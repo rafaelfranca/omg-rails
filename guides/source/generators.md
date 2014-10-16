@@ -8,6 +8,7 @@ After reading this guide, you will know:
 * How to see which generators are available in your application.
 * How to create a generator using templates.
 * How Rails searches for generators before invoking them.
+* How Rails internally generates Rails code from the templates.
 * How to customize your scaffold by creating new generators.
 * How to customize your scaffold by changing generator templates.
 * How to use fallbacks to avoid overwriting a huge set of generators.
@@ -35,7 +36,7 @@ $ bin/rails generate helper --help
 Creating Your First Generator
 -----------------------------
 
-Since Rails 3.0, generators are built on top of [Thor](https://github.com/erikhuda/thor). Thor provides powerful options parsing and a great API for manipulating files. For instance, let's build a generator that creates an initializer file named `initializer.rb` inside `config/initializers`.
+Since Rails 3.0, generators are built on top of [Thor](https://github.com/erikhuda/thor). Thor provides powerful options for parsing and a great API for manipulating files. For instance, let's build a generator that creates an initializer file named `initializer.rb` inside `config/initializers`.
 
 The first step is to create a file at `lib/generators/initializer_generator.rb` with the following content:
 
@@ -191,8 +192,6 @@ $ bin/rails generate scaffold User name:string
       create      test/controllers/users_controller_test.rb
       invoke    helper
       create      app/helpers/users_helper.rb
-      invoke      test_unit
-      create        test/helpers/users_helper_test.rb
       invoke    jbuilder
       create      app/views/users/index.json.jbuilder
       create      app/views/users/show.json.jbuilder
@@ -207,7 +206,7 @@ $ bin/rails generate scaffold User name:string
 
 Looking at this output, it's easy to understand how generators work in Rails 3.0 and above. The scaffold generator doesn't actually generate anything, it just invokes others to do the work. This allows us to add/replace/remove any of those invocations. For instance, the scaffold generator invokes the scaffold_controller generator, which invokes erb, test_unit and helper generators. Since each generator has a single responsibility, they are easy to reuse, avoiding code duplication.
 
-Our first customization on the workflow will be to stop generating stylesheets, javascripts and test fixtures for scaffolds. We can achieve that by changing our configuration to the following:
+Our first customization on the workflow will be to stop generating stylesheet, JavaScript and test fixture files for scaffolds. We can achieve that by changing our configuration to the following:
 
 ```ruby
 config.generators do |g|
@@ -219,7 +218,7 @@ config.generators do |g|
 end
 ```
 
-If we generate another resource with the scaffold generator, we can see that stylesheets, javascripts and fixtures are not created anymore. If you want to customize it further, for example to use DataMapper and RSpec instead of Active Record and TestUnit, it's just a matter of adding their gems to your application and configuring your generators.
+If we generate another resource with the scaffold generator, we can see that stylesheet, JavaScript and fixture files are not created anymore. If you want to customize it further, for example to use DataMapper and RSpec instead of Active Record and TestUnit, it's just a matter of adding their gems to your application and configuring your generators.
 
 To demonstrate this, we are going to create a new helper generator that simply adds some instance variable readers. First, we create a generator within the rails namespace, as this is where rails searches for generators used as hooks:
 
@@ -342,6 +341,22 @@ end
 
 If you generate another resource, you can see that we get exactly the same result! This is useful if you want to customize your scaffold templates and/or layout by just creating `edit.html.erb`, `index.html.erb` and so on inside `lib/templates/erb/scaffold`.
 
+Scaffold templates in Rails frequently use ERB tags; these tags need to be
+escaped so that the generated output is valid ERB code.
+
+For example, the following escaped ERB tag would be needed in the template
+(note the extra `%`)...
+
+```ruby
+<%%= stylesheet_include_tag :application %>
+```
+
+...to generate the following output:
+
+```ruby
+<%= stylesheet_include_tag :application %>
+```
+
 Adding Generators Fallbacks
 ---------------------------
 
@@ -387,8 +402,6 @@ $ bin/rails generate scaffold Comment body:text
       create      test/controllers/comments_controller_test.rb
       invoke    my_helper
       create      app/helpers/comments_helper.rb
-      invoke      shoulda
-      create        test/helpers/comments_helper_test.rb
       invoke    jbuilder
       create      app/views/comments/index.json.jbuilder
       create      app/views/comments/show.json.jbuilder

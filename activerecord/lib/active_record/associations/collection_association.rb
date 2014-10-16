@@ -55,9 +55,9 @@ module ActiveRecord
 
       # Implements the ids writer method, e.g. foo.item_ids= for Foo.has_many :items
       def ids_writer(ids)
-        pk_column = reflection.primary_key_column
+        pk_type = reflection.primary_key_type
         ids = Array(ids).reject { |id| id.blank? }
-        ids.map! { |i| pk_column.type_cast_from_user(i) }
+        ids.map! { |i| pk_type.type_cast_from_user(i) }
         replace(klass.find(ids).index_by { |r| r.id }.values_at(*ids))
       end
 
@@ -407,7 +407,12 @@ module ActiveRecord
 
       private
       def get_records
-        return scope.to_a if reflection.scope_chain.any?(&:any?)
+        if reflection.scope_chain.any?(&:any?) ||
+          scope.eager_loading? ||
+          klass.current_scope
+
+          return scope.to_a
+        end
 
         conn = klass.connection
         sc = reflection.association_scope_cache(conn, owner) do

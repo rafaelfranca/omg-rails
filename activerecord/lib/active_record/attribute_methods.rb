@@ -31,7 +31,7 @@ module ActiveRecord
       end
     }
 
-    BLACKLISTED_CLASS_METHODS = %w(private public protected)
+    BLACKLISTED_CLASS_METHODS = %w(private public protected allocate new name parent superclass)
 
     class AttributeMethodCache
       def initialize
@@ -57,6 +57,8 @@ module ActiveRecord
       end
     end
 
+    class GeneratedAttributeMethods < Module; end # :nodoc:
+
     module ClassMethods
       def inherited(child_class) #:nodoc:
         child_class.initialize_generated_modules
@@ -64,16 +66,18 @@ module ActiveRecord
       end
 
       def initialize_generated_modules # :nodoc:
-        @generated_attribute_methods = Module.new { extend Mutex_m }
+        @generated_attribute_methods = GeneratedAttributeMethods.new { extend Mutex_m }
         @attribute_methods_generated = false
         include @generated_attribute_methods
+
+        super
       end
 
       # Generates all the attribute related methods for columns in the database
       # accessors, mutators and query methods.
       def define_attribute_methods # :nodoc:
         return false if @attribute_methods_generated
-        # Use a mutex; we don't want two thread simultaneously trying to define
+        # Use a mutex; we don't want two threads simultaneously trying to define
         # attribute methods.
         generated_attribute_methods.synchronize do
           return false if @attribute_methods_generated
@@ -107,16 +111,17 @@ module ActiveRecord
       #   # => false
       def instance_method_already_implemented?(method_name)
         if dangerous_attribute_method?(method_name)
-          raise DangerousAttributeError, "#{method_name} is defined by Active Record"
+          raise DangerousAttributeError, "#{method_name} is defined by Active Record. Check to make sure that you don't have an attribute or method with the same name."
         end
 
         if superclass == Base
           super
         else
-          # If B < A and A defines its own attribute method, then we don't want to overwrite that.
-          defined = method_defined_within?(method_name, superclass, superclass.generated_attribute_methods)
-          base_defined = Base.method_defined?(method_name) || Base.private_method_defined?(method_name)
-          defined && !base_defined || super
+          # If ThisClass < ... < SomeSuperClass < ... < Base and SomeSuperClass
+          # defines its own attribute method, then we don't want to overwrite that.
+          defined = method_defined_within?(method_name, superclass, Base) &&
+            ! superclass.instance_method(method_name).owner.is_a?(GeneratedAttributeMethods)
+          defined || super
         end
       end
 
@@ -186,23 +191,25 @@ module ActiveRecord
       end
 
       # Returns the column object for the named attribute.
-      # Returns a +ActiveRecord::ConnectionAdapters::NullColumn+ if the
-      # named attribute does not exist.
+      # Returns nil if the named attribute does not exist.
       #
       #   class Person < ActiveRecord::Base
       #   end
       #
       #   person = Person.new
       #   person.column_for_attribute(:name) # the result depends on the ConnectionAdapter
-      #   # => #<ActiveRecord::ConnectionAdapters::SQLite3Column:0x007ff4ab083980 @name="name", @sql_type="varchar(255)", @null=true, ...>
+      #   # => #<ActiveRecord::ConnectionAdapters::Column:0x007ff4ab083980 @name="name", @sql_type="varchar(255)", @null=true, ...>
       #
       #   person.column_for_attribute(:nothing)
-      #   # => #<ActiveRecord::ConnectionAdapters::NullColumn:0xXXX @name=nil, @sql_type=nil, @cast_type=#<Type::Value>, ...>
+      #   # => nil
       def column_for_attribute(name)
-        name = name.to_s
-        columns_hash.fetch(name) do
-          ConnectionAdapters::NullColumn.new(name)
+        column = columns_hash[name.to_s]
+        if column.nil?
+          ActiveSupport::Deprecation.warn \
+            "`column_for_attribute` will return a null object for non-existent columns " \
+            "in Rails 5.0. Use `has_attribute?` if you need to check for an attribute's existence."
         end
+        column
       end
     end
 
@@ -230,7 +237,7 @@ module ActiveRecord
       # For queries selecting a subset of columns, return false for unselected columns.
       # We check defined?(@attributes) not to issue warnings if called on objects that
       # have been allocated but not yet initialized.
-      if defined?(@attributes) && @attributes.any? && self.class.column_names.include?(name)
+      if defined?(@attributes) && self.class.column_names.include?(name)
         return has_attribute?(name)
       end
 
@@ -247,7 +254,7 @@ module ActiveRecord
     #   person.has_attribute?('age')    # => true
     #   person.has_attribute?(:nothing) # => false
     def has_attribute?(attr_name)
-      @attributes.has_key?(attr_name.to_s)
+      @attributes.key?(attr_name.to_s)
     end
 
     # Returns an array of names for the attributes available on this object.
@@ -271,15 +278,13 @@ module ActiveRecord
     #   person.attributes
     #   # => {"id"=>3, "created_at"=>Sun, 21 Oct 2012 04:53:04, "updated_at"=>Sun, 21 Oct 2012 04:53:04, "name"=>"Francesco", "age"=>22}
     def attributes
-      attribute_names.each_with_object({}) { |name, attrs|
-        attrs[name] = read_attribute(name)
-      }
+      @attributes.to_hash
     end
 
     # Returns an <tt>#inspect</tt>-like string for the value of the
-    # attribute +attr_name+. String attributes are truncated upto 50
+    # attribute +attr_name+. String attributes are truncated up to 50
     # characters, Date and Time attributes are returned in the
-    # <tt>:db</tt> format, Array attributes are truncated upto 10 values.
+    # <tt>:db</tt> format, Array attributes are truncated up to 10 values.
     # Other attributes return the value of <tt>#inspect</tt> without
     # modification.
     #
@@ -367,12 +372,6 @@ module ActiveRecord
 
     protected
 
-    def clone_attributes # :nodoc:
-      @attributes.each_with_object({}) do |(name, attr), h|
-        h[name] = attr.dup
-      end
-    end
-
     def clone_attribute_value(reader_method, attribute_name) # :nodoc:
       value = send(reader_method, attribute_name)
       value.duplicable? ? value.clone : value
@@ -390,7 +389,7 @@ module ActiveRecord
 
     def attribute_method?(attr_name) # :nodoc:
       # We check defined? because Syck calls respond_to? before actually calling initialize.
-      defined?(@attributes) && @attributes.include?(attr_name)
+      defined?(@attributes) && @attributes.key?(attr_name)
     end
 
     private

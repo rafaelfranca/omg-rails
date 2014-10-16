@@ -1,6 +1,7 @@
 require 'generators/generators_test_helper'
 require 'rails/generators/rails/app/app_generator'
 require 'env_helpers'
+require 'mocha/setup' # FIXME: stop using mocha
 
 class ActionsTest < Rails::Generators::TestCase
   include GeneratorsTestHelper
@@ -76,6 +77,16 @@ class ActionsTest < Rails::Generators::TestCase
     action :gem, 'rspec', github: 'dchelimsky/rspec', tag: '1.2.9.rc1'
 
     assert_file 'Gemfile', /gem 'rspec', github: 'dchelimsky\/rspec', tag: '1\.2\.9\.rc1'/
+  end
+
+  def test_gem_with_non_string_options
+    run_generator
+
+    action :gem, 'rspec', require: false
+    action :gem, 'rspec-rails', group: [:development, :test]
+
+    assert_file 'Gemfile', /^gem 'rspec', require: false$/
+    assert_file 'Gemfile', /^gem 'rspec-rails', group: \[:development, :test\]$/
   end
 
   def test_gem_falls_back_to_inspect_if_string_contains_single_quote
@@ -242,7 +253,7 @@ class ActionsTest < Rails::Generators::TestCase
   protected
 
     def action(*args, &block)
-      silence(:stdout){ generator.send(*args, &block) }
+      capture(:stdout){ generator.send(*args, &block) }
     end
 
 end

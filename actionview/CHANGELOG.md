@@ -1,3 +1,73 @@
+*   Changed the meaning of `render "foo/bar"`.
+
+    Previously, calling `render "foo/bar"` in a controller action is equivalent
+    to `render file: "foo/bar"`. In Rails 4.2, this has been changed to mean
+    `render template: "foo/bar"` instead. If you need to render a file, please
+    change your code to use the explicit form (`render file: "foo/bar"`) instead.
+
+    *Jeremy Jackson*
+
+*   Add support for ARIA attributes in tags.
+
+    Example:
+
+        <%= f.text_field :name, aria: { required: "true", hidden: "false" } %>
+
+    now generates:
+
+         <input aria-hidden="false" aria-required="true" id="user_name" name="user[name]" type="text">
+
+    *Paola Garcia Casadiego*
+
+*   Provide a `builder` object when using the `label` form helper in block form.
+
+    The new `builder` object responds to `translation`, allowing I18n fallback support
+    when you want to customize how a particular label is presented.
+
+    *Alex Robbin*
+
+*   Add I18n support for input/textarea placeholder text.
+
+    Placeholder I18n follows the same convention as `label` I18n.
+
+    *Alex Robbin*
+
+*   Fix that render layout: 'messages/layout' should also be added to the dependency tracker tree.
+
+    *DHH*
+
+*   Add `PartialIteration` object used when rendering collections.
+
+    The iteration object is available as the local variable
+    `#{template_name}_iteration` when rendering partials with collections.
+
+    It gives access to the `size` of the collection being iterated over,
+    the current `index` and two convenience methods `first?` and `last?`.
+
+    *Joel Junström*, *Lucas Uyezu*
+
+*   Return an absolute instead of relative path from an asset url in the case
+    of the `asset_host` proc returning nil.
+
+    *Jolyon Pawlyn*
+
+*   Fix `html_escape_once` to properly handle hex escape sequences (e.g. &#x1a2b;).
+
+    *John F. Douthat*
+
+*   Added String support for min and max properties for date field helpers.
+
+    *Todd Bealmear*
+
+*   The `highlight` helper now accepts a block to be used instead of the `highlighter`
+    option.
+
+    *Lucas Mazza*
+
+*   The `except` and `highlight` helpers now accept regular expressions.
+
+    *Jan Szumiec*
+
 *   Flatten the array parameter in `safe_join`, so it behaves consistently with
     `Array#join`.
 
@@ -14,7 +84,7 @@
 
     *Zuhao Wan*
 
-*   Bring `cache_digest` rake tasks up-to-date with the latest API changes
+*   Bring `cache_digest` rake tasks up-to-date with the latest API changes.
 
     *Jiri Pospisil*
 
@@ -66,12 +136,12 @@
 
     Before:
 
-        #=> favicon_link_tag 'myicon.ico'
+        # => favicon_link_tag 'myicon.ico'
         <link href="/assets/myicon.ico" rel="shortcut icon" type="image/vnd.microsoft.icon" />
 
     After:
 
-        #=> favicon_link_tag 'myicon.ico'
+        # => favicon_link_tag 'myicon.ico'
         <link href="/assets/myicon.ico" rel="shortcut icon" type="image/x-icon" />
 
     *Geoffroy Lorieux*
@@ -79,12 +149,12 @@
 *   Remove wrapping div with inline styles for hidden form fields.
 
     We are dropping HTML 4.01 and XHTML strict compliance since input tags directly
-    inside a form are valid HTML5, and the absense of inline styles help in validating
+    inside a form are valid HTML5, and the absence of inline styles help in validating
     for Content Security Policy.
 
     *Joost Baaij*
 
-*   `collection_check_boxes` respects `:index` option for the hidden filed name.
+*   `collection_check_boxes` respects `:index` option for the hidden field name.
 
     Fixes #14147.
 
@@ -105,7 +175,7 @@
 
     *Vasiliy Ermolovich*
 
-*   Fixed a problem where the default options for the `button_tag` helper is not
+*   Fixed a problem where the default options for the `button_tag` helper are not
     applied correctly.
 
     Fixes #14254.

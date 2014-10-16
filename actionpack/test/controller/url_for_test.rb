@@ -231,8 +231,8 @@ module AbstractController
       def test_trailing_slash_with_params
         url = W.new.url_for(:trailing_slash => true, :only_path => true, :controller => 'cont', :action => 'act', :p1 => 'cafe', :p2 => 'link')
         params = extract_params(url)
-        assert_equal params[0], { :p1 => 'cafe' }.to_query
-        assert_equal params[1], { :p2 => 'link' }.to_query
+        assert_equal({p1: 'cafe'}.to_query, params[0])
+        assert_equal({p2: 'link'}.to_query, params[1])
       end
 
       def test_relative_url_root_is_respected
@@ -287,12 +287,12 @@ module AbstractController
           # We need to create a new class in order to install the new named route.
           kls = Class.new { include set.url_helpers }
           controller = kls.new
-          assert controller.respond_to?(:home_url)
+          assert_respond_to controller, :home_url
           assert_equal '/brave/new/world',
-            controller.send(:url_for, :controller => 'brave', :action => 'new', :id => 'world', :only_path => true)
+            controller.url_for(:controller => 'brave', :action => 'new', :id => 'world', :only_path => true)
 
-          assert_equal("/home/sweet/home/alabama", controller.send(:home_url, :user => 'alabama', :host => 'unused', :only_path => true))
-          assert_equal("/home/sweet/home/alabama", controller.send(:home_path, 'alabama'))
+          assert_equal("/home/sweet/home/alabama", controller.home_path(:user => 'alabama', :host => 'unused', :only_path => true))
+          assert_equal("/home/sweet/home/alabama", controller.home_path('alabama'))
         end
       end
 
@@ -305,40 +305,40 @@ module AbstractController
       def test_two_parameters
         url = W.new.url_for(:only_path => true, :controller => 'c', :action => 'a', :p1 => 'X1', :p2 => 'Y2')
         params = extract_params(url)
-        assert_equal params[0], { :p1 => 'X1' }.to_query
-        assert_equal params[1], { :p2 => 'Y2' }.to_query
+        assert_equal({p1: 'X1'}.to_query, params[0])
+        assert_equal({p2: 'Y2'}.to_query, params[1])
       end
 
       def test_hash_parameter
         url = W.new.url_for(:only_path => true, :controller => 'c', :action => 'a', :query => {:name => 'Bob', :category => 'prof'})
         params = extract_params(url)
-        assert_equal params[0], { 'query[category]' => 'prof' }.to_query
-        assert_equal params[1], { 'query[name]'     => 'Bob'  }.to_query
+        assert_equal({'query[category]' => 'prof'}.to_query, params[0])
+        assert_equal({'query[name]' => 'Bob'}.to_query, params[1])
       end
 
       def test_array_parameter
         url = W.new.url_for(:only_path => true, :controller => 'c', :action => 'a', :query => ['Bob', 'prof'])
         params = extract_params(url)
-        assert_equal params[0], { 'query[]' => 'Bob'  }.to_query
-        assert_equal params[1], { 'query[]' => 'prof' }.to_query
+        assert_equal({'query[]' => 'Bob'}.to_query, params[0])
+        assert_equal({'query[]' => 'prof'}.to_query, params[1])
       end
 
       def test_hash_recursive_parameters
         url = W.new.url_for(:only_path => true, :controller => 'c', :action => 'a', :query => {:person => {:name => 'Bob', :position => 'prof'}, :hobby => 'piercing'})
         params = extract_params(url)
-        assert_equal params[0], { 'query[hobby]'            => 'piercing' }.to_query
-        assert_equal params[1], { 'query[person][name]'     => 'Bob'      }.to_query
-        assert_equal params[2], { 'query[person][position]' => 'prof'     }.to_query
+        assert_equal({'query[hobby]'            => 'piercing'}.to_query, params[0])
+        assert_equal({'query[person][name]'     => 'Bob'     }.to_query, params[1])
+        assert_equal({'query[person][position]' => 'prof'    }.to_query, params[2])
       end
 
       def test_hash_recursive_and_array_parameters
         url = W.new.url_for(:only_path => true, :controller => 'c', :action => 'a', :id => 101, :query => {:person => {:name => 'Bob', :position => ['prof', 'art director']}, :hobby => 'piercing'})
         assert_match(%r(^/c/a/101), url)
         params = extract_params(url)
-        assert_equal params[0], { 'query[hobby]'              => 'piercing'     }.to_query
-        assert_equal params[1], { 'query[person][name]'       => 'Bob'          }.to_query
-        assert_equal params[2], { 'query[person][position][]' => 'art director' }.to_query
-        assert_equal params[3], { 'query[person][position][]' => 'prof'         }.to_query
+        assert_equal({'query[hobby]'              => 'piercing'    }.to_query, params[0])
+        assert_equal({'query[person][name]'       => 'Bob'         }.to_query, params[1])
+        assert_equal({'query[person][position][]' => 'art director'}.to_query, params[2])
+        assert_equal({'query[person][position][]' => 'prof'        }.to_query, params[3])
       end
 
       def test_path_generation_for_symbol_parameter_keys

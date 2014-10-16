@@ -21,10 +21,10 @@ application from scratch. It does not assume that you have any prior experience
 with Rails. However, to get the most out of it, you need to have some
 prerequisites installed:
 
-* The [Ruby](http://www.ruby-lang.org/en/downloads) language version 1.9.3 or newer.
-* The [RubyGems](http://rubygems.org) packaging system, which is installed with Ruby
+* The [Ruby](https://www.ruby-lang.org/en/downloads) language version 1.9.3 or newer.
+* The [RubyGems](https://rubygems.org) packaging system, which is installed with Ruby
   versions 1.9 and later. To learn more about RubyGems, please read the [RubyGems Guides](http://guides.rubygems.org).
-* A working installation of the [SQLite3 Database](http://www.sqlite.org).
+* A working installation of the [SQLite3 Database](https://www.sqlite.org).
 
 Rails is a web application framework running on the Ruby programming language.
 If you have no prior experience with Ruby, you will find a very steep learning
@@ -101,7 +101,7 @@ If you don't have Ruby installed have a look at
 install Ruby on your platform.
 
 Many popular UNIX-like OSes ship with an acceptable version of SQLite3. Windows
-users and others can find installation instructions at [the SQLite3 website](http://www.sqlite.org).
+users and others can find installation instructions at [the SQLite3 website](https://www.sqlite.org).
 Verify that it is correctly installed and in your PATH:
 
 ```bash
@@ -120,10 +120,10 @@ To verify that you have everything installed correctly, you should be able to
 run the following:
 
 ```bash
-$ bin/rails --version
+$ rails --version
 ```
 
-If it says something like "Rails 4.1.1", you are ready to continue.
+If it says something like "Rails 4.2.0", you are ready to continue.
 
 ### Creating the Blog Application
 
@@ -191,14 +191,15 @@ following in the `blog` directory:
 $ bin/rails server
 ```
 
-TIP: Compiling CoffeeScript to JavaScript requires a JavaScript runtime and the
-absence of a runtime will give you an `execjs` error. Usually Mac OS X and
-Windows come with a JavaScript runtime installed. Rails adds the `therubyracer`
-gem to the generated `Gemfile` in a commented line for new apps and you can
-uncomment if you need it. `therubyrhino` is the recommended runtime for JRuby
-users and is added by default to the `Gemfile` in apps generated under JRuby.
-You can investigate about all the supported runtimes at
-[ExecJS](https://github.com/sstephenson/execjs#readme).
+TIP: Compiling CoffeeScript and JavaScript asset compression requires you
+have a JavaScript runtime available on your system, in the absence
+of a runtime you will see an `execjs` error during asset compilation.
+Usually Mac OS X and Windows come with a JavaScript runtime installed.
+Rails adds the `therubyracer` gem to the generated `Gemfile` in a 
+commented line for new apps and you can uncomment if you need it. 
+`therubyrhino` is the recommended runtime for JRuby users and is added by
+default to the `Gemfile` in apps generated under JRuby. You can investigate
+all the supported runtimes at [ExecJS](https://github.com/sstephenson/execjs#readme).
 
 This will fire up WEBrick, a web server distributed with Ruby by default. To see
 your application in action, open a browser window and navigate to
@@ -256,8 +257,6 @@ invoke  test_unit
 create    test/controllers/welcome_controller_test.rb
 invoke  helper
 create    app/helpers/welcome_helper.rb
-invoke    test_unit
-create      test/helpers/welcome_helper_test.rb
 invoke  assets
 invoke    coffee
 create      app/assets/javascripts/welcome.js.coffee
@@ -450,9 +449,7 @@ available, Rails errors out.
 In the above image, the bottom line has been truncated. Let's see what the full
 thing looks like:
 
-<blockquote>
-Missing template articles/new, application/new with {locale:[:en], formats:[:html], handlers:[:erb, :builder, :coffee]}. Searched in: * "/path/to/blog/app/views"
-</blockquote>
+>Missing template articles/new, application/new with {locale:[:en], formats:[:html], handlers:[:erb, :builder, :coffee]}. Searched in: * "/path/to/blog/app/views"
 
 That's quite a lot of text! Let's quickly go through and understand what each
 part of it does.
@@ -498,8 +495,8 @@ harmoniously! It's time to create the form for a new article.
 
 ### The first form
 
-To create a form within this template, you will use a <em>form
-builder</em>. The primary form builder for Rails is provided by a helper
+To create a form within this template, you will use a *form
+builder*. The primary form builder for Rails is provided by a helper
 method called `form_for`. To use this method, add this code into
 `app/views/articles/new.html.erb`:
 
@@ -751,8 +748,7 @@ to create an article. Try it! You should get an error that looks like this:
 (images/getting_started/forbidden_attributes_for_new_article.png)
 
 Rails has several security features that help you write secure applications,
-and you're running into one of them now. This one is called `[strong_parameters]
-(http://guides.rubyonrails.org/action_controller_overview.html#strong-parameters)`,
+and you're running into one of them now. This one is called [strong parameters](action_controller_overview.html#strong-parameters),
 which requires us to tell Rails exactly which parameters are allowed into our
 controller actions.
 
@@ -912,7 +908,7 @@ And then finally, add the view for this action, located at
 </table>
 ```
 
-Now if you go to `http://localhost:3000/articles` you will see a list of all the
+Now if you go to <http://localhost:3000/articles> you will see a list of all the
 articles that you have created.
 
 ### Adding links
@@ -1007,7 +1003,7 @@ These changes will ensure that all articles have a title that is at least five
 characters long. Rails can validate a variety of conditions in a model,
 including the presence or uniqueness of columns, their format, and the
 existence of associated objects. Validations are covered in detail in [Active
-Record Validations](active_record_validations.html)
+Record Validations](active_record_validations.html).
 
 With the validation now in place, when you call `@article.save` on an invalid
 article, it will return `false`. If you open
@@ -1108,7 +1104,7 @@ standout.
 
 Now you'll get a nice error message when saving an article without title when
 you attempt to do just that on the new article form
-[(http://localhost:3000/articles/new)](http://localhost:3000/articles/new).
+<http://localhost:3000/articles/new>:
 
 ![Form With Errors](images/getting_started/form_with_errors.png)
 
@@ -1631,7 +1627,7 @@ controller. Again, we'll use the same generator we used before:
 $ bin/rails generate controller Comments
 ```
 
-This creates six files and one empty directory:
+This creates five files and one empty directory:
 
 | File/Directory                               | Purpose                                  |
 | -------------------------------------------- | ---------------------------------------- |
@@ -1639,7 +1635,6 @@ This creates six files and one empty directory:
 | app/views/comments/                          | Views of the controller are stored here  |
 | test/controllers/comments_controller_test.rb | The test for the controller              |
 | app/helpers/comments_helper.rb               | A view helper file                       |
-| test/helpers/comments_helper_test.rb         | The test for the helper                  |
 | app/assets/javascripts/comment.js.coffee     | CoffeeScript for the controller          |
 | app/assets/stylesheets/comment.css.scss      | Cascading style sheet for the controller |
 
@@ -1873,7 +1868,7 @@ Then you make the `app/views/articles/show.html.erb` look like the following:
 <%= render @article.comments %>
 
 <h2>Add a comment:</h2>
-<%= render "comments/form" %>
+<%= render 'comments/form' %>
 
 <%= link_to 'Edit Article', edit_article_path(@article) %> |
 <%= link_to 'Back to Articles', articles_path %>
@@ -2012,7 +2007,7 @@ class CommentsController < ApplicationController
 ```
 
 Now if you try to create a new article, you will be greeted with a basic HTTP
-Authentication challenge
+Authentication challenge:
 
 ![Basic HTTP Authentication Challenge](images/getting_started/challenge.png)
 
@@ -2027,7 +2022,7 @@ along with a number of others.
 
 Security, especially in web applications, is a broad and detailed area. Security
 in your Rails application is covered in more depth in
-The [Ruby on Rails Security Guide](security.html)
+the [Ruby on Rails Security Guide](security.html).
 
 
 What's Next?
@@ -2038,7 +2033,7 @@ update it and experiment on your own. But you don't have to do everything
 without help. As you need assistance getting up and running with Rails, feel
 free to consult these support resources:
 
-* The [Ruby on Rails guides](index.html)
+* The [Ruby on Rails Guides](index.html)
 * The [Ruby on Rails Tutorial](http://railstutorial.org/book)
 * The [Ruby on Rails mailing list](http://groups.google.com/group/rubyonrails-talk)
 * The [#rubyonrails](irc://irc.freenode.net/#rubyonrails) channel on irc.freenode.net

@@ -129,17 +129,21 @@ class MysqlConnectionTest < ActiveRecord::TestCase
     end
   end
 
+  def test_mysql_connection_collation_is_configured
+    assert_equal 'utf8_unicode_ci', @connection.show_variable('collation_connection')
+    assert_equal 'utf8_general_ci', ARUnit2Model.connection.show_variable('collation_connection')
+  end
+
   def test_mysql_default_in_strict_mode
     result = @connection.exec_query "SELECT @@SESSION.sql_mode"
     assert_equal [["STRICT_ALL_TABLES"]], result.rows
   end
 
-  def test_mysql_strict_mode_disabled_dont_override_global_sql_mode
+  def test_mysql_strict_mode_disabled
     run_without_connection do |orig_connection|
       ActiveRecord::Base.establish_connection(orig_connection.merge({:strict => false}))
-      global_sql_mode = ActiveRecord::Base.connection.exec_query "SELECT @@GLOBAL.sql_mode"
-      session_sql_mode = ActiveRecord::Base.connection.exec_query "SELECT @@SESSION.sql_mode"
-      assert_equal global_sql_mode.rows, session_sql_mode.rows
+      result = ActiveRecord::Base.connection.exec_query "SELECT @@SESSION.sql_mode"
+      assert_equal [['']], result.rows
     end
   end
 
@@ -151,7 +155,7 @@ class MysqlConnectionTest < ActiveRecord::TestCase
     end
   end
 
-  def test_mysql_sql_mode_variable_overides_strict_mode
+  def test_mysql_sql_mode_variable_overrides_strict_mode
     run_without_connection do |orig_connection|
       ActiveRecord::Base.establish_connection(orig_connection.deep_merge(variables: { 'sql_mode' => 'ansi' }))
       result = ActiveRecord::Base.connection.exec_query 'SELECT @@SESSION.sql_mode'

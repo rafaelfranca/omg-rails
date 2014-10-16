@@ -1,6 +1,7 @@
 require 'generators/generators_test_helper'
 require 'rails/generators/rails/plugin/plugin_generator'
 require 'generators/shared_generator_tests'
+require 'mocha/setup' # FIXME: stop using mocha
 
 DEFAULT_PLUGIN_FILES = %w(
   .gitignore
@@ -53,7 +54,10 @@ class PluginGeneratorTest < Rails::Generators::TestCase
     run_generator
     assert_file "README.rdoc", /Bukkits/
     assert_no_file "config/routes.rb"
-    assert_file "test/test_helper.rb"
+    assert_file "test/test_helper.rb" do |content|
+      assert_match(/require.+test\/dummy\/config\/environment/, content)
+      assert_match(/ActiveRecord::Migrator\.migrations_paths.+test\/dummy\/db\/migrate/, content)
+    end
     assert_file "test/bukkits_test.rb", /assert_kind_of Module, Bukkits/
   end
 
@@ -94,7 +98,7 @@ class PluginGeneratorTest < Rails::Generators::TestCase
   end
 
   def test_generating_adds_dummy_app_without_javascript_and_assets_deps
-    run_generator [destination_root]
+    run_generator
 
     assert_file "test/dummy/app/assets/stylesheets/application.css"
 
@@ -241,6 +245,10 @@ class PluginGeneratorTest < Rails::Generators::TestCase
       assert_match(/stylesheet_link_tag\s+['"]bukkits\/application['"]/, contents)
       assert_match(/javascript_include_tag\s+['"]bukkits\/application['"]/, contents)
     end
+    assert_file "test/test_helper.rb" do |content|
+      assert_match(/ActiveRecord::Migrator\.migrations_paths.+\.\.\/test\/dummy\/db\/migrate/, content)
+      assert_match(/ActiveRecord::Migrator\.migrations_paths.+<<.+\.\.\/db\/migrate/, content)
+    end
   end
 
   def test_creating_gemspec
@@ -269,6 +277,10 @@ class PluginGeneratorTest < Rails::Generators::TestCase
     assert_file "spec/dummy"
     assert_file "spec/dummy/config/application.rb"
     assert_no_file "test/dummy"
+    assert_file "test/test_helper.rb" do |content|
+      assert_match(/require.+spec\/dummy\/config\/environment/, content)
+      assert_match(/ActiveRecord::Migrator\.migrations_paths.+spec\/dummy\/db\/migrate/, content)
+    end
   end
 
   def test_creating_dummy_application_with_different_name
@@ -276,6 +288,10 @@ class PluginGeneratorTest < Rails::Generators::TestCase
     assert_file "spec/fake"
     assert_file "spec/fake/config/application.rb"
     assert_no_file "test/dummy"
+    assert_file "test/test_helper.rb" do |content|
+      assert_match(/require.+spec\/fake\/config\/environment/, content)
+      assert_match(/ActiveRecord::Migrator\.migrations_paths.+spec\/fake\/db\/migrate/, content)
+    end
   end
 
   def test_creating_dummy_without_tests_but_with_dummy_path
@@ -283,6 +299,7 @@ class PluginGeneratorTest < Rails::Generators::TestCase
     assert_file "spec/dummy"
     assert_file "spec/dummy/config/application.rb"
     assert_no_file "test"
+    assert_no_file "test/test_helper.rb"
     assert_file '.gitignore' do |contents|
       assert_match(/spec\/dummy/, contents)
     end
@@ -334,7 +351,7 @@ class PluginGeneratorTest < Rails::Generators::TestCase
     Object.const_set('APP_PATH', Rails.root)
     FileUtils.touch gemfile_path
 
-    run_generator [destination_root]
+    run_generator
 
     assert_file gemfile_path, /gem 'bukkits', path: 'tmp\/bukkits'/
   ensure
@@ -375,19 +392,19 @@ class PluginGeneratorTest < Rails::Generators::TestCase
     name = `git config user.name`.chomp rescue "TODO: Write your name"
     email = `git config user.email`.chomp rescue "TODO: Write your email address"
 
-    run_generator [destination_root]
+    run_generator
     assert_file "bukkits.gemspec" do |contents|
-      assert_match(/#{Regexp.escape(name)}/, contents)
-      assert_match(/#{Regexp.escape(email)}/, contents)
+      assert_match name, contents
+      assert_match email, contents
     end
   end
 
   def test_git_name_in_license_file
     name = `git config user.name`.chomp rescue "TODO: Write your name"
 
-    run_generator [destination_root]
+    run_generator
     assert_file "MIT-LICENSE" do |contents|
-      assert_match(/#{Regexp.escape(name)}/, contents)
+      assert_match name, contents
     end
   end
 
@@ -397,11 +414,11 @@ class PluginGeneratorTest < Rails::Generators::TestCase
 
     run_generator [destination_root, '--skip-git']
     assert_file "MIT-LICENSE" do |contents|
-      assert_match(/#{Regexp.escape(name)}/, contents)
+      assert_match name, contents
     end
     assert_file "bukkits.gemspec" do |contents|
-      assert_match(/#{Regexp.escape(name)}/, contents)
-      assert_match(/#{Regexp.escape(email)}/, contents)
+      assert_match name, contents
+      assert_match email, contents
     end
   end
 
@@ -415,10 +432,10 @@ protected
   end
 
   def assert_match_sqlite3(contents)
-    unless defined?(JRUBY_VERSION)
-      assert_match(/group :development do\n  gem 'sqlite3'\nend/, contents)
-    else
+    if defined?(JRUBY_VERSION)
       assert_match(/group :development do\n  gem 'activerecord-jdbcsqlite3-adapter'\nend/, contents)
+    else
+      assert_match(/group :development do\n  gem 'sqlite3'\nend/, contents)
     end
   end
 end

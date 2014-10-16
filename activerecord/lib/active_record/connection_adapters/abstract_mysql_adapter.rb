@@ -1,4 +1,5 @@
 require 'arel/visitors/bind_visitor'
+require 'active_support/core_ext/string/strip'
 
 module ActiveRecord
   module ConnectionAdapters
@@ -11,6 +12,10 @@ module ActiveRecord
         end
 
         private
+
+        def visit_DropForeignKey(name)
+          "DROP FOREIGN KEY #{name}"
+        end
 
         def visit_TableDefinition(o)
           name = o.name
@@ -157,10 +162,6 @@ module ActiveRecord
         end
       end
 
-      def adapter_name #:nodoc:
-        self.class::ADAPTER_NAME
-      end
-
       # Returns true, since this connection adapter supports migrations.
       def supports_migrations?
         true
@@ -190,6 +191,14 @@ module ActiveRecord
 
       def supports_indexes_in_create?
         true
+      end
+
+      def supports_foreign_keys?
+        true
+      end
+
+      def supports_views?
+        version[0] >= 5
       end
 
       def native_database_types
@@ -380,8 +389,12 @@ module ActiveRecord
         end
       end
 
+      def truncate(table_name, name = nil)
+        execute "TRUNCATE TABLE #{quote_table_name(table_name)}", name
+      end
+
       def table_exists?(name)
-        return false unless name
+        return false unless name.present?
         return true if tables(nil, nil, name).any?
 
         name          = name.to_s
@@ -465,7 +478,7 @@ module ActiveRecord
       end
 
       def rename_index(table_name, old_name, new_name)
-        if (version[0] == 5 && version[1] >= 7) || version[0] >= 6
+        if supports_rename_index?
           execute "ALTER TABLE #{quote_table_name(table_name)} RENAME INDEX #{quote_table_name(old_name)} TO #{quote_table_name(new_name)}"
         else
           super
@@ -499,6 +512,34 @@ module ActiveRecord
       def add_index(table_name, column_name, options = {}) #:nodoc:
         index_name, index_type, index_columns, index_options, index_algorithm, index_using = add_index_options(table_name, column_name, options)
         execute "CREATE #{index_type} INDEX #{quote_column_name(index_name)} #{index_using} ON #{quote_table_name(table_name)} (#{index_columns})#{index_options} #{index_algorithm}"
+      end
+
+      def foreign_keys(table_name)
+        fk_info = select_all <<-SQL.strip_heredoc
+          SELECT fk.referenced_table_name as 'to_table'
+                ,fk.referenced_column_name as 'primary_key'
+                ,fk.column_name as 'column'
+                ,fk.constraint_name as 'name'
+          FROM information_schema.key_column_usage fk
+          WHERE fk.referenced_column_name is not null
+            AND fk.table_schema = '#{@config[:database]}'
+            AND fk.table_name = '#{table_name}'
+        SQL
+
+        create_table_info = select_one("SHOW CREATE TABLE #{quote_table_name(table_name)}")["Create Table"]
+
+        fk_info.map do |row|
+          options = {
+            column: row['column'],
+            name: row['name'],
+            primary_key: row['primary_key']
+          }
+
+          options[:on_update] = extract_foreign_key_action(create_table_info, row['name'], "UPDATE")
+          options[:on_delete] = extract_foreign_key_action(create_table_info, row['name'], "DELETE")
+
+          ForeignKeyDefinition.new(table_name, row['to_table'], options)
+        end
       end
 
       # Maps logical Rails types to MySQL-specific data types.
@@ -603,18 +644,21 @@ module ActiveRecord
 
       def initialize_type_map(m) # :nodoc:
         super
+
         m.register_type(%r(enum)i) do |sql_type|
           limit = sql_type[/^enum\((.+)\)/i, 1]
             .split(',').map{|enum| enum.strip.length - 2}.max
           Type::String.new(limit: limit)
         end
 
-        m.register_type %r(tinytext)i,   Type::Text.new(limit: 255)
-        m.register_type %r(tinyblob)i,   Type::Binary.new(limit: 255)
-        m.register_type %r(mediumtext)i, Type::Text.new(limit: 16777215)
-        m.register_type %r(mediumblob)i, Type::Binary.new(limit: 16777215)
-        m.register_type %r(longtext)i,   Type::Text.new(limit: 2147483647)
-        m.register_type %r(longblob)i,   Type::Binary.new(limit: 2147483647)
+        m.register_type %r(tinytext)i,   Type::Text.new(limit: 2**8 - 1)
+        m.register_type %r(tinyblob)i,   Type::Binary.new(limit: 2**8 - 1)
+        m.register_type %r(text)i,       Type::Text.new(limit: 2**16 - 1)
+        m.register_type %r(blob)i,       Type::Binary.new(limit: 2**16 - 1)
+        m.register_type %r(mediumtext)i, Type::Text.new(limit: 2**24 - 1)
+        m.register_type %r(mediumblob)i, Type::Binary.new(limit: 2**24 - 1)
+        m.register_type %r(longtext)i,   Type::Text.new(limit: 2**32 - 1)
+        m.register_type %r(longblob)i,   Type::Binary.new(limit: 2**32 - 1)
         m.register_type %r(^bigint)i,    Type::Integer.new(limit: 8)
         m.register_type %r(^int)i,       Type::Integer.new(limit: 4)
         m.register_type %r(^mediumint)i, Type::Integer.new(limit: 3)
@@ -728,8 +772,8 @@ module ActiveRecord
         "DROP INDEX #{index_name}"
       end
 
-      def add_timestamps_sql(table_name)
-        [add_column_sql(table_name, :created_at, :datetime), add_column_sql(table_name, :updated_at, :datetime)]
+      def add_timestamps_sql(table_name, options = {})
+        [add_column_sql(table_name, :created_at, :datetime, options), add_column_sql(table_name, :updated_at, :datetime, options)]
       end
 
       def remove_timestamps_sql(table_name)
@@ -738,8 +782,16 @@ module ActiveRecord
 
       private
 
-      def supports_views?
-        version[0] >= 5
+      def version
+        @version ||= full_version.scan(/^(\d+)\.(\d+)\.(\d+)/).flatten.map { |v| v.to_i }
+      end
+
+      def mariadb?
+        full_version =~ /mariadb/i
+      end
+
+      def supports_rename_index?
+        mariadb? ? false : (version[0] == 5 && version[1] >= 7) || version[0] >= 6
       end
 
       def configure_connection
@@ -757,14 +809,18 @@ module ActiveRecord
         # Make MySQL reject illegal values rather than truncating or blanking them, see
         # http://dev.mysql.com/doc/refman/5.0/en/server-sql-mode.html#sqlmode_strict_all_tables
         # If the user has provided another value for sql_mode, don't replace it.
-        if strict_mode? && !variables.has_key?('sql_mode')
-          variables['sql_mode'] = 'STRICT_ALL_TABLES'
+        unless variables.has_key?('sql_mode')
+          variables['sql_mode'] = strict_mode? ? 'STRICT_ALL_TABLES' : ''
         end
 
         # NAMES does not have an equals sign, see
         # http://dev.mysql.com/doc/refman/5.0/en/set-statement.html#id944430
         # (trailing comma because variable_assignments will always have content)
-        encoding = "NAMES #{@config[:encoding]}, " if @config[:encoding]
+        if @config[:encoding]
+          encoding = "NAMES #{@config[:encoding]}"
+          encoding << " COLLATE #{@config[:collation]}" if @config[:collation]
+          encoding << ", "
+        end
 
         # Gather up all of the SET variables...
         variable_assignments = variables.map do |k, v|
@@ -778,6 +834,15 @@ module ActiveRecord
 
         # ...and send them all in one query
         @connection.query  "SET #{encoding} #{variable_assignments}"
+      end
+
+      def extract_foreign_key_action(structure, name, action) # :nodoc:
+        if structure =~ /CONSTRAINT #{quote_column_name(name)} FOREIGN KEY .* REFERENCES .* ON #{action} (CASCADE|SET NULL|RESTRICT)/
+          case $1
+          when 'CASCADE'; :cascade
+          when 'SET NULL'; :nullify
+          end
+        end
       end
     end
   end

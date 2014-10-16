@@ -14,9 +14,9 @@ module ActiveRecord
         raise ArgumentError, "No database file specified. Missing argument: database"
       end
 
-      # Allow database path relative to Rails.root, but only if
-      # the database path is not the special path that tells
-      # Sqlite to build a database only in memory.
+      # Allow database path relative to Rails.root, but only if the database
+      # path is not the special path that tells sqlite to build a database only
+      # in memory.
       if ':memory:' != config[:database]
         config[:database] = File.expand_path(config[:database], Rails.root) if defined?(Rails.root)
         dirname = File.dirname(config[:database])
@@ -50,6 +50,16 @@ module ActiveRecord
       end
     end
 
+    class SQLite3String < Type::String # :nodoc:
+      def type_cast_for_database(value)
+        if value.is_a?(::String) && value.encoding == Encoding::ASCII_8BIT
+          value.encode(Encoding::UTF_8)
+        else
+          super
+        end
+      end
+    end
+
     # The SQLite3 adapter works SQLite 3.6.16 or newer
     # with the sqlite3-ruby drivers (available as gem from https://rubygems.org/gems/sqlite3).
     #
@@ -57,6 +67,7 @@ module ActiveRecord
     #
     # * <tt>:database</tt> - Path to the database file.
     class SQLite3Adapter < AbstractAdapter
+      ADAPTER_NAME = 'SQLite'.freeze
       include Savepoints
 
       NATIVE_DATABASE_TYPES = {
@@ -137,10 +148,6 @@ module ActiveRecord
         end
       end
 
-      def adapter_name #:nodoc:
-        'SQLite'
-      end
-
       def supports_ddl_transactions?
         true
       end
@@ -173,6 +180,10 @@ module ActiveRecord
       end
 
       def supports_add_column?
+        true
+      end
+
+      def supports_views?
         true
       end
 
@@ -220,8 +231,18 @@ module ActiveRecord
       # QUOTING ==================================================
 
       def _quote(value) # :nodoc:
-        if value.is_a?(Type::Binary::Data)
+        case value
+        when Type::Binary::Data
           "x'#{value.hex}'"
+        else
+          super
+        end
+      end
+
+      def _type_cast(value) # :nodoc:
+        case value
+        when BigDecimal
+          value.to_f
         else
           super
         end
@@ -247,19 +268,6 @@ module ActiveRecord
         else
           super
         end
-      end
-
-      def type_cast(value, column) # :nodoc:
-        return value.to_f if BigDecimal === value
-        return super unless String === value
-        return super unless column && value
-
-        value = super
-        if column.type == :string && value.encoding == Encoding::ASCII_8BIT
-          logger.error "Binary data inserted for `string` type on column `#{column.name}`" if logger
-          value = value.encode Encoding::UTF_8
-        end
-        value
       end
 
       # DATABASE STATEMENTS ======================================
@@ -365,7 +373,7 @@ module ActiveRecord
         sql = <<-SQL
           SELECT name
           FROM sqlite_master
-          WHERE type = 'table' AND NOT name = 'sqlite_sequence'
+          WHERE (type = 'table' OR type = 'view') AND NOT name = 'sqlite_sequence'
         SQL
         sql << " AND name = #{quote_table_name(table_name)}" if table_name
 
@@ -378,7 +386,7 @@ module ActiveRecord
         table_name && tables(nil, table_name).any?
       end
 
-      # Returns an array of +SQLite3Column+ objects for the table specified by +table_name+.
+      # Returns an array of +Column+ objects for the table specified by +table_name+.
       def columns(table_name) #:nodoc:
         table_structure(table_name).map do |field|
           case field["dflt_value"]
@@ -503,6 +511,7 @@ module ActiveRecord
         def initialize_type_map(m)
           super
           m.register_type(/binary/i, SQLite3Binary.new)
+          register_class_with_limit m, %r(char)i, SQLite3String
         end
 
         def select(sql, name = nil, binds = []) #:nodoc:

@@ -10,12 +10,7 @@ if ActiveRecord::Base.connection.supports_extensions?
     def setup
       @connection = ActiveRecord::Base.connection
 
-      unless @connection.extension_enabled?('citext')
-        @connection.enable_extension 'citext'
-        @connection.commit_db_transaction
-      end
-
-      @connection.reconnect!
+      enable_extension!('citext', @connection)
 
       @connection.create_table('citexts') do |t|
         t.citext 'cival'
@@ -24,7 +19,7 @@ if ActiveRecord::Base.connection.supports_extensions?
 
     teardown do
       @connection.execute 'DROP TABLE IF EXISTS citexts;'
-      @connection.execute 'DROP EXTENSION IF EXISTS citext CASCADE;'
+      disable_extension!('citext', @connection)
     end
 
     def test_citext_enabled
@@ -35,7 +30,6 @@ if ActiveRecord::Base.connection.supports_extensions?
       column = Citext.columns_hash['cival']
       assert_equal :citext, column.type
       assert_equal 'citext', column.sql_type
-      assert_not column.text?
       assert_not column.number?
       assert_not column.binary?
       assert_not column.array

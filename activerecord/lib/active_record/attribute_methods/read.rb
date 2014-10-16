@@ -46,9 +46,7 @@ module ActiveRecord
         protected
 
         def cached_attributes_deprecation_warning(method_name)
-          ActiveSupport::Deprecation.warn(<<-MESSAGE.strip_heredoc)
-            Calling `#{method_name}` is no longer necessary. All attributes are cached.
-          MESSAGE
+          ActiveSupport::Deprecation.warn "Calling `#{method_name}` is no longer necessary. All attributes are cached."
         end
 
         if Module.methods_transplantable?
@@ -81,27 +79,16 @@ module ActiveRecord
       # Returns the value of the attribute identified by <tt>attr_name</tt> after
       # it has been typecast (for example, "2004-12-12" in a date column is cast
       # to a date object, like Date.new(2004, 12, 12)).
-      def read_attribute(attr_name)
+      def read_attribute(attr_name, &block)
         name = attr_name.to_s
-        @attributes.fetch(name) {
-          if name == 'id'
-            return read_attribute(self.class.primary_key)
-          elsif block_given? && self.class.columns_hash.key?(name)
-            return yield(name)
-          else
-            return nil
-          end
-        }.value
+        name = self.class.primary_key if name == 'id'
+        @attributes.fetch_value(name, &block)
       end
 
       private
 
       def attribute(attribute_name)
         read_attribute(attribute_name)
-      end
-
-      def attribute_named(attribute_name)
-        @attributes.fetch(attribute_name, Attribute::Null)
       end
     end
   end

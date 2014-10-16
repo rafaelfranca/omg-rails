@@ -29,7 +29,7 @@ module ActiveRecord
 
   module ConnectionAdapters
     class Mysql2Adapter < AbstractMysqlAdapter
-      ADAPTER_NAME = 'Mysql2'
+      ADAPTER_NAME = 'Mysql2'.freeze
 
       def initialize(connection, logger, connection_options, config)
         super
@@ -269,8 +269,8 @@ module ActiveRecord
         super
       end
 
-      def version
-        @version ||= @connection.info[:version].scan(/^(\d+)\.(\d+)\.(\d+)/).flatten.map { |v| v.to_i }
+      def full_version
+        @full_version ||= @connection.info[:version]
       end
 
       def set_field_encoding field_name

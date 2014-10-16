@@ -34,7 +34,7 @@ module ActiveRecord
       # <tt>reload</tt> the record and clears changed attributes.
       def reload(*)
         super.tap do
-          reset_changes
+          clear_changes_information
         end
       end
 
@@ -43,30 +43,30 @@ module ActiveRecord
         calculate_changes_from_defaults
       end
 
-      def changed?
-        super || changed_in_place.any?
-      end
-
-      def changed
-        super | changed_in_place
-      end
-
-      def attribute_changed?(attr_name, options = {})
-        result = super
-        # We can't change "from" something in place. Only setters can define
-        # "from" and "to"
-        result ||= changed_in_place?(attr_name) unless options.key?(:from)
-        result
-      end
-
       def changes_applied
         super
         store_original_raw_attributes
       end
 
-      def reset_changes
+      def clear_changes_information
         super
         original_raw_attributes.clear
+      end
+
+      def changed_attributes
+        # This should only be set by methods which will call changed_attributes
+        # multiple times when it is known that the computed value cannot change.
+        if defined?(@cached_changed_attributes)
+          @cached_changed_attributes
+        else
+          super.reverse_merge(attributes_changed_in_place).freeze
+        end
+      end
+
+      def changes
+        cache_changed_attributes do
+          super
+        end
       end
 
       private
@@ -74,7 +74,7 @@ module ActiveRecord
       def calculate_changes_from_defaults
         @changed_attributes = nil
         self.class.column_defaults.each do |attr, orig_value|
-          changed_attributes[attr] = orig_value if _field_changed?(attr, orig_value)
+          set_attribute_was(attr, orig_value) if _field_changed?(attr, orig_value)
         end
       end
 
@@ -100,9 +100,9 @@ module ActiveRecord
 
       def save_changed_attribute(attr, old_value)
         if attribute_changed?(attr)
-          changed_attributes.delete(attr) unless _field_changed?(attr, old_value)
+          clear_attribute_changes(attr) unless _field_changed?(attr, old_value)
         else
-          changed_attributes[attr] = old_value if _field_changed?(attr, old_value)
+          set_attribute_was(attr, old_value) if _field_changed?(attr, old_value)
         end
       end
 
@@ -129,7 +129,14 @@ module ActiveRecord
       end
 
       def _field_changed?(attr, old_value)
-        attribute_named(attr).changed_from?(old_value)
+        @attributes[attr].changed_from?(old_value)
+      end
+
+      def attributes_changed_in_place
+        changed_in_place.each_with_object({}) do |attr_name, h|
+          orig = @attributes[attr_name].original_value
+          h[attr_name] = orig
+        end
       end
 
       def changed_in_place
@@ -140,7 +147,7 @@ module ActiveRecord
 
       def changed_in_place?(attr_name)
         old_value = original_raw_attribute(attr_name)
-        attribute_named(attr_name).changed_in_place_from?(old_value)
+        @attributes[attr_name].changed_in_place_from?(old_value)
       end
 
       def original_raw_attribute(attr_name)
@@ -154,13 +161,20 @@ module ActiveRecord
       end
 
       def store_original_raw_attribute(attr_name)
-        original_raw_attributes[attr_name] = attribute_named(attr_name).value_for_database
+        original_raw_attributes[attr_name] = @attributes[attr_name].value_for_database
       end
 
       def store_original_raw_attributes
         attribute_names.each do |attr|
           store_original_raw_attribute(attr)
         end
+      end
+
+      def cache_changed_attributes
+        @cached_changed_attributes = changed_attributes
+        yield
+      ensure
+        remove_instance_variable(:@cached_changed_attributes)
       end
     end
   end

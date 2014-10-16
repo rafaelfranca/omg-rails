@@ -17,7 +17,7 @@ end
 
 class TestController < ActionController::Base
   def send_mail
-    email = I18nTestMailer.mail_with_i18n_subject("test@localhost").deliver
+    email = I18nTestMailer.mail_with_i18n_subject("test@localhost").deliver_now
     render text: "Mail sent - Subject: #{email.subject}"
   end
 end
@@ -28,8 +28,23 @@ class ActionMailerI18nWithControllerTest < ActionDispatch::IntegrationTest
     get ':controller(/:action(/:id))'
   end
 
+  class RoutedRackApp
+    attr_reader :routes
+
+    def initialize(routes, &blk)
+      @routes = routes
+      @stack = ActionDispatch::MiddlewareStack.new(&blk).build(@routes)
+    end
+
+    def call(env)
+      @stack.call(env)
+    end
+  end
+
+  APP = RoutedRackApp.new(Routes)
+
   def app
-    Routes
+    APP
   end
 
   teardown do
@@ -37,6 +52,7 @@ class ActionMailerI18nWithControllerTest < ActionDispatch::IntegrationTest
   end
 
   def test_send_mail
+    Mail::SMTP.any_instance.expects(:deliver!)
     with_translation 'de', email_subject: '[Anmeldung] Willkommen' do
       get '/test/send_mail'
       assert_equal "Mail sent - Subject: [Anmeldung] Willkommen", @response.body

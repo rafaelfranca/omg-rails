@@ -162,7 +162,7 @@ Active Support provides `duplicable?` to programmatically query an object about 
 false.duplicable? # => false
 ```
 
-By definition all objects are `duplicable?` except `nil`, `false`, `true`, symbols, numbers, class, and module objects.
+By definition all objects are `duplicable?` except `nil`, `false`, `true`, symbols, numbers, class, module, and method objects.
 
 WARNING: Any class can disallow duplication by removing `dup` and `clone` or raising exceptions from them. Thus only `rescue` can tell whether a given arbitrary object is duplicable. `duplicable?` depends on the hard-coded list above, but it is much faster than `rescue`. Use it only if you know the hard-coded list is enough in your use case.
 
@@ -1165,9 +1165,9 @@ Inserting data into HTML templates needs extra care. For example, you can't just
 
 #### Safe Strings
 
-Active Support has the concept of <i>(html) safe</i> strings. A safe string is one that is marked as being insertable into HTML as is. It is trusted, no matter whether it has been escaped or not.
+Active Support has the concept of _(html) safe_ strings. A safe string is one that is marked as being insertable into HTML as is. It is trusted, no matter whether it has been escaped or not.
 
-Strings are considered to be <i>unsafe</i> by default:
+Strings are considered to be _unsafe_ by default:
 
 ```ruby
 "".html_safe? # => false
@@ -1268,7 +1268,7 @@ The method `squish` strips leading and trailing whitespace, and substitutes runs
 
 There's also the destructive version `String#squish!`.
 
-Note that it handles both ASCII and Unicode whitespace like mongolian vowel separator (U+180E).
+Note that it handles both ASCII and Unicode whitespace.
 
 NOTE: Defined in `active_support/core_ext/string/filters.rb`.
 
@@ -1307,6 +1307,38 @@ The option `:separator` can be a regexp:
 ```
 
 In above examples "dear" gets cut first, but then `:separator` prevents it.
+
+NOTE: Defined in `active_support/core_ext/string/filters.rb`.
+
+### `truncate_words`
+
+The method `truncate_words` returns a copy of its receiver truncated after a given number of words:
+
+```ruby
+"Oh dear! Oh dear! I shall be late!".truncate_words(4)
+# => "Oh dear! Oh dear!..."
+```
+
+Ellipsis can be customized with the `:omission` option:
+
+```ruby
+"Oh dear! Oh dear! I shall be late!".truncate_words(4, omission: '&hellip;')
+# => "Oh dear! Oh dear!&hellip;"
+```
+
+Pass a `:separator` to truncate the string at a natural break:
+
+```ruby
+"Oh dear! Oh dear! I shall be late!".truncate_words(3, separator: '!')
+# => "Oh dear! Oh dear! I shall be late..."
+```
+
+The option `:separator` can be a regexp:
+
+```ruby
+"Oh dear! Oh dear! I shall be late!".truncate_words(4, separator: /\s/)
+# => "Oh dear! Oh dear!..."
+```
 
 NOTE: Defined in `active_support/core_ext/string/filters.rb`.
 
@@ -2862,6 +2894,20 @@ Active Record does not accept unknown options when building associations, for ex
 
 NOTE: Defined in `active_support/core_ext/hash/keys.rb`.
 
+### Working with Values
+
+#### `transform_values` && `transform_values!`
+
+The method `transform_values` accepts a block and returns a hash that has applied the block operations to each of the values in the receiver.
+
+```ruby
+{ nil => nil, 1 => 1, :x => :a }.transform_values { |value| value.to_s.upcase }
+# => {nil=>"", 1=>"1", :x=>"A"}
+```
+There's also the bang variant `transform_values!` that applies the block operations to values in the very receiver.
+
+NOTE: Defined in `active_support/core_text/hash/transform_values.rb`.
+
 ### Slicing
 
 Ruby has built-in support for taking slices out of strings and arrays. Active Support extends slicing to hashes:
@@ -3672,9 +3718,9 @@ t.advance(seconds: 1)
 
 #### `Time.current`
 
-Active Support defines `Time.current` to be today in the current time zone. That's like `Time.now`, except that it honors the user time zone, if defined. It also defines `Time.yesterday` and `Time.tomorrow`, and the instance predicates `past?`, `today?`, and `future?`, all of them relative to `Time.current`.
+Active Support defines `Time.current` to be today in the current time zone. That's like `Time.now`, except that it honors the user time zone, if defined. It also defines the instance predicates `past?`, `today?`, and `future?`, all of them relative to `Time.current`.
 
-When making Time comparisons using methods which honor the user time zone, make sure to use `Time.current` and not `Time.now`. There are cases where the user time zone might be in the future compared to the system time zone, which `Time.today` uses by default. This means `Time.now` may equal `Time.yesterday`.
+When making Time comparisons using methods which honor the user time zone, make sure to use `Time.current` instead of `Time.now`. There are cases where the user time zone might be in the future compared to the system time zone, which `Time.now` uses by default. This means `Time.now.to_date` may equal `Date.yesterday`.
 
 #### `all_day`, `all_week`, `all_month`, `all_quarter` and `all_year`
 

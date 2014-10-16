@@ -9,9 +9,7 @@ class PostgresqlLtreeTest < ActiveRecord::TestCase
   def setup
     @connection = ActiveRecord::Base.connection
 
-    unless @connection.extension_enabled?('ltree')
-      @connection.enable_extension 'ltree'
-    end
+    enable_extension!('ltree', @connection)
 
     @connection.transaction do
       @connection.create_table('ltrees') do |t|
@@ -31,7 +29,6 @@ class PostgresqlLtreeTest < ActiveRecord::TestCase
     assert_equal :ltree, column.type
     assert_equal "ltree", column.sql_type
     assert_not column.number?
-    assert_not column.text?
     assert_not column.binary?
     assert_not column.array
   end

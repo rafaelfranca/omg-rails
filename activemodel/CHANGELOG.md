@@ -1,3 +1,39 @@
+*   Passwords with spaces only allowed in `ActiveModel::SecurePassword`.
+
+    Presence validation can be used to restore old behavior.
+
+    *Yevhene Shemet*
+
+*   Validate options passed to `ActiveModel::Validations.validate`.
+
+    Preventing, in many cases, the simple mistake of using `validate` instead of `validates`.
+
+    *Sonny Michaud*
+
+*   Deprecate `reset_#{attribute}` in favor of `restore_#{attribute}`.
+
+    These methods may cause confusion with the `reset_changes`, which has
+    different behaviour.
+
+    *Rafael Mendonça França*
+
+*   Deprecate `ActiveModel::Dirty#reset_changes` in favor of `#clear_changes_information`.
+
+    Method's name is causing confusion with the `reset_#{attribute}` methods.
+    While `reset_name` sets the value of the name attribute to previous value
+    `reset_changes` only discards the changes.
+
+    *Rafael Mendonça França*
+
+*   Added `restore_attributes` method to `ActiveModel::Dirty` API which restores
+    the value of changed attributes to previous value.
+
+    *Igor G.*
+
+*   Allow proc and symbol as values for `only_integer` of `NumericalityValidator`
+
+    *Robin Mehner*
+
 *   `has_secure_password` now verifies that the given password is less than 72
     characters if validations are enabled.
 

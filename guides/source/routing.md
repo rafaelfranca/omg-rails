@@ -645,6 +645,8 @@ match 'photos', to: 'photos#show', via: :all
 
 NOTE: Routing both `GET` and `POST` requests to a single action has security implications. In general, you should avoid routing all verbs to an action unless you have a good reason to.
 
+NOTE: 'GET' in Rails won't check for CSRF token. You should never write to the database from 'GET' requests, for more information see the [security guide](security.html#csrf-countermeasures) on CSRF countermeasures.
+
 ### Segment Constraints
 
 You can use the `:constraints` option to enforce a format for a dynamic segment:
@@ -681,7 +683,7 @@ You can also constrain a route based on any method on the [Request object](actio
 You specify a request-based constraint the same way that you specify a segment constraint:
 
 ```ruby
-get 'photos', constraints: { subdomain: 'admin' }
+get 'photos', to: 'photos#index', constraints: { subdomain: 'admin' }
 ```
 
 You can also specify constraints in a block form:
@@ -754,7 +756,7 @@ get '*a/foo/*b', to: 'test#index'
 
 would match `zoo/woo/foo/bar/baz` with `params[:a]` equals `'zoo/woo'`, and `params[:b]` equals `'bar/baz'`.
 
-NOTE: By requesting `'/foo/bar.json'`, your `params[:pages]` will be equals to `'foo/bar'` with the request format of JSON. If you want the old 3.0.x behavior back, you could supply `format: false` like this:
+NOTE: By requesting `'/foo/bar.json'`, your `params[:pages]` will be equal to `'foo/bar'` with the request format of JSON. If you want the old 3.0.x behavior back, you could supply `format: false` like this:
 
 ```ruby
 get '*pages', to: 'pages#show', format: false

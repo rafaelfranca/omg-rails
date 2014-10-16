@@ -3,10 +3,11 @@ require 'models/topic'
 require 'models/reply'
 require 'models/person'
 require 'models/traffic_light'
+require 'models/post'
 require 'bcrypt'
 
 class SerializedAttributeTest < ActiveRecord::TestCase
-  fixtures :topics
+  fixtures :topics, :posts
 
   MyObject = Struct.new :attribute1, :attribute2
 
@@ -15,8 +16,8 @@ class SerializedAttributeTest < ActiveRecord::TestCase
   end
 
   def test_serialize_does_not_eagerly_load_columns
+    Topic.reset_column_information
     assert_no_queries do
-      Topic.reset_column_information
       Topic.serialize(:content)
     end
   end
@@ -67,6 +68,40 @@ class SerializedAttributeTest < ActiveRecord::TestCase
     assert_equal(orig.content, clone.content)
   end
 
+  def test_serialized_json_attribute_returns_unserialized_value
+    Topic.serialize :content, JSON
+    my_post = posts(:welcome)
+
+    t = Topic.new(content: my_post)
+    t.save!
+    t.reload
+
+    assert_instance_of(Hash, t.content)
+    assert_equal(my_post.id, t.content["id"])
+    assert_equal(my_post.title, t.content["title"])
+  end
+
+  def test_json_read_legacy_null
+    Topic.serialize :content, JSON
+
+    # Force a row to have a JSON "null" instead of a database NULL (this is how
+    # null values are saved on 4.1 and before)
+    id = Topic.connection.insert "INSERT INTO topics (content) VALUES('null')"
+    t = Topic.find(id)
+
+    assert_nil t.content
+  end
+
+  def test_json_read_db_null
+    Topic.serialize :content, JSON
+
+    # Force a row to have a database NULL instead of a JSON "null"
+    id = Topic.connection.insert "INSERT INTO topics (content) VALUES(NULL)"
+    t = Topic.find(id)
+
+    assert_nil t.content
+  end
+
   def test_serialized_attribute_declared_in_subclass
     hash = { 'important1' => 'value1', 'important2' => 'value2' }
     important_topic = ImportantTopic.create("important" => hash)
@@ -105,11 +140,10 @@ class SerializedAttributeTest < ActiveRecord::TestCase
     assert_equal 1, Topic.where(:content => nil).count
   end
 
-  def test_serialized_attribute_should_raise_exception_on_save_with_wrong_type
+  def test_serialized_attribute_should_raise_exception_on_assignment_with_wrong_type
     Topic.serialize(:content, Hash)
     assert_raise(ActiveRecord::SerializationTypeMismatch) do
       topic = Topic.new(content: 'string')
-      topic.save
     end
   end
 

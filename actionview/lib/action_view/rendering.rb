@@ -35,12 +35,13 @@ module ActionView
     module ClassMethods
       def view_context_class
         @view_context_class ||= begin
-          routes = respond_to?(:_routes) && _routes
+          include_path_helpers = supports_path?
+          routes  = respond_to?(:_routes)  && _routes
           helpers = respond_to?(:_helpers) && _helpers
 
           Class.new(ActionView::Base) do
             if routes
-              include routes.url_helpers
+              include routes.url_helpers(include_path_helpers)
               include routes.mounted_helpers
             end
 
@@ -107,7 +108,7 @@ module ActionView
       end
 
       # Normalize args by converting render "foo" to render :action => "foo" and
-      # render "foo/bar" to render :file => "foo/bar".
+      # render "foo/bar" to render :template => "foo/bar".
       # :api: private
       def _normalize_args(action=nil, options={})
         options = super(action, options)
@@ -117,7 +118,7 @@ module ActionView
           options = action
         when String, Symbol
           action = action.to_s
-          key = action.include?(?/) ? :file : :action
+          key = action.include?(?/) ? :template : :action
           options[key] = action
         else
           options[:partial] = action

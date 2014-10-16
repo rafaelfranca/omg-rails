@@ -99,7 +99,7 @@ one:
 Note: For associations to reference one another by name, you cannot specify the `id:`
  attribute on the fixtures. Rails will auto assign a primary key to be consistent between
  runs. If you manually specify an `id:` attribute, this behavior will not work. For more
-  information on this assocation behavior please read the
+  information on this association behavior please read the
   [fixture api documentation](http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html).
 
 #### ERB'in It Up
@@ -144,7 +144,7 @@ In Rails, models tests are what you write to test your models.
 
 For this guide we will be using Rails _scaffolding_. It will create the model, a migration, controller and views for the new resource in a single operation. It will also create a full test suite following Rails best practices. We will be using examples from this generated code and will be supplementing it with additional examples where necessary.
 
-NOTE: For more information on Rails <i>scaffolding</i>, refer to [Getting Started with Rails](getting_started.html)
+NOTE: For more information on Rails _scaffolding_, refer to [Getting Started with Rails](getting_started.html)
 
 When you use `rails generate scaffold`, for a resource among other things it creates a test stub in the `test/models` folder:
 
@@ -365,7 +365,7 @@ Ideally, you would like to include a test for everything which could possibly br
 By now you've caught a glimpse of some of the assertions that are available. Assertions are the worker bees of testing. They are the ones that actually perform the checks to ensure that things are going as planned.
 
 There are a bunch of different types of assertions you can use.
-Here's an extract of the assertions you can use with `minitest`, the default testing library used by Rails. The `[msg]` parameter is an optional string message you can specify to make your test failure messages clearer. It's not required.
+Here's an extract of the assertions you can use with [`Minitest`](https://github.com/seattlerb/minitest), the default testing library used by Rails. The `[msg]` parameter is an optional string message you can specify to make your test failure messages clearer. It's not required.
 
 | Assertion                                                        | Purpose |
 | ---------------------------------------------------------------- | ------- |
@@ -377,8 +377,12 @@ Here's an extract of the assertions you can use with `minitest`, the default tes
 | `assert_not_same( expected, actual, [msg] )`                     | Ensures that `expected.equal?(actual)` is false.|
 | `assert_nil( obj, [msg] )`                                       | Ensures that `obj.nil?` is true.|
 | `assert_not_nil( obj, [msg] )`                                   | Ensures that `obj.nil?` is false.|
+| `assert_empty( obj, [msg] )`                                     | Ensures that `obj` is `empty?`.|
+| `assert_not_empty( obj, [msg] )`                                 | Ensures that `obj` is not `empty?`.|
 | `assert_match( regexp, string, [msg] )`                          | Ensures that a string matches the regular expression.|
 | `assert_no_match( regexp, string, [msg] )`                       | Ensures that a string doesn't match the regular expression.|
+| `assert_includes( collection, obj, [msg] )`                      | Ensures that `obj` is in `collection`.|
+| `assert_not_includes( collection, obj, [msg] )`                  | Ensures that `obj` is not in `collection`.|
 | `assert_in_delta( expecting, actual, [delta], [msg] )`           | Ensures that the numbers `expected` and `actual` are within `delta` of each other.|
 | `assert_not_in_delta( expecting, actual, [delta], [msg] )`       | Ensures that the numbers `expected` and `actual` are not within `delta` of each other.|
 | `assert_throws( symbol, [msg] ) { block }`                       | Ensures that the given block throws the symbol.|
@@ -392,8 +396,12 @@ Here's an extract of the assertions you can use with `minitest`, the default tes
 | `assert_not_respond_to( obj, symbol, [msg] )`                    | Ensures that `obj` does not respond to `symbol`.|
 | `assert_operator( obj1, operator, [obj2], [msg] )`               | Ensures that `obj1.operator(obj2)` is true.|
 | `assert_not_operator( obj1, operator, [obj2], [msg] )`           | Ensures that `obj1.operator(obj2)` is false.|
+| `assert_predicate ( obj, predicate, [msg] )`                     | Ensures that `obj.predicate` is true, e.g. `assert_predicate str, :empty?`|
+| `assert_not_predicate ( obj, predicate, [msg] )`                 | Ensures that `obj.predicate` is false, e.g. `assert_not_predicate str, :empty?`|
 | `assert_send( array, [msg] )`                                    | Ensures that executing the method listed in `array[1]` on the object in `array[0]` with the parameters of `array[2 and up]` is true. This one is weird eh?|
 | `flunk( [msg] )`                                                 | Ensures failure. This is useful to explicitly mark a test that isn't finished yet.|
+
+The above are subset of assertions that minitest supports. For an exhaustive & more up-to-date list, please check [Minitest API documentation](http://docs.seattlerb.org/minitest/), specifically [`Minitest::Assertions`](http://docs.seattlerb.org/minitest/Minitest/Assertions.html)
 
 Because of the modular nature of the testing framework, it is possible to create your own assertions. In fact, that's exactly what Rails does. It includes some specialized assertions to make your life easier.
 
@@ -585,7 +593,7 @@ Here's another example that uses `flash`, `assert_redirected_to`, and `assert_di
 
 ```ruby
 test "should create article" do
-  assert_difference('article.count') do
+  assert_difference('Article.count') do
     post :create, article: {title: 'Hi', body: 'This is my first article.'}
   end
   assert_redirected_to article_path(assigns(:article))
@@ -597,13 +605,13 @@ end
 
 Testing the response to your request by asserting the presence of key HTML elements and their content is a useful way to test the views of your application. The `assert_select` assertion allows you to do this by using a simple yet powerful syntax.
 
-NOTE: You may find references to `assert_tag` in other documentation, but this is now deprecated in favor of `assert_select`.
+NOTE: You may find references to `assert_tag` in other documentation. This has been removed in 4.2. Use `assert_select` instead.
 
 There are two forms of `assert_select`:
 
-`assert_select(selector, [equality], [message])` ensures that the equality condition is met on the selected elements through the selector. The selector may be a CSS selector expression (String), an expression with substitution values, or an `HTML::Selector` object.
+`assert_select(selector, [equality], [message])` ensures that the equality condition is met on the selected elements through the selector. The selector may be a CSS selector expression (String) or an expression with substitution values.
 
-`assert_select(element, selector, [equality], [message])` ensures that the equality condition is met on all the selected elements through the selector starting from the _element_ (instance of `HTML::Node`) and its descendants.
+`assert_select(element, selector, [equality], [message])` ensures that the equality condition is met on all the selected elements through the selector starting from the _element_ (instance of `Nokogiri::XML::Node` or `Nokogiri::XML::NodeSet`) and its descendants.
 
 For example, you could verify the contents on the title element in your response with:
 
@@ -633,7 +641,7 @@ assert_select "ol" do
 end
 ```
 
-The `assert_select` assertion is quite powerful. For more advanced usage, refer to its [documentation](http://api.rubyonrails.org/classes/ActionDispatch/Assertions/SelectorAssertions.html).
+The `assert_select` assertion is quite powerful. For more advanced usage, refer to its [documentation](https://github.com/rails/rails-dom-testing/blob/master/lib/rails/dom/testing/assertions/selector_assertions.rb).
 
 #### Additional View-Based Assertions
 
@@ -789,6 +797,7 @@ when you initiate a Rails project.
 | `rake test:functionals` | Runs all the functional tests from `test/controllers`, `test/mailers`, and `test/functional` |
 | `rake test:helpers`     | Runs all the helper tests from `test/helpers` |
 | `rake test:integration` | Runs all the integration tests from `test/integration` |
+| `rake test:jobs`        | Runs all the job tests from `test/jobs` |
 | `rake test:mailers`     | Runs all the mailer tests from `test/mailers` |
 | `rake test:models`      | Runs all the model tests from `test/models` |
 | `rake test:units`       | Runs all the unit tests from `test/models`, `test/helpers`, and `test/unit` |
@@ -941,7 +950,7 @@ class UserMailerTest < ActionMailer::TestCase
   test "invite" do
     # Send the email, then test that it got queued
     email = UserMailer.create_invite('me@example.com',
-                                     'friend@example.com', Time.now).deliver
+                                     'friend@example.com', Time.now).deliver_now
     assert_not ActionMailer::Base.deliveries.empty?
 
     # Test the body of the sent email contains what we expect it to
@@ -996,7 +1005,7 @@ class UserControllerTest < ActionController::TestCase
 
     assert_equal "You have been invited by me@example.com", invite_email.subject
     assert_equal 'friend@example.com', invite_email.to[0]
-    assert_match(/Hi friend@example.com/, invite_email.body)
+    assert_match(/Hi friend@example.com/, invite_email.body.to_s)
   end
 end
 ```
@@ -1006,17 +1015,9 @@ Testing helpers
 
 In order to test helpers, all you need to do is check that the output of the
 helper method matches what you'd expect. Tests related to the helpers are
-located under the `test/helpers` directory. Rails provides a generator which
-generates both the helper and the test file:
+located under the `test/helpers` directory.
 
-```bash
-$ bin/rails generate helper User
-      create  app/helpers/user_helper.rb
-      invoke  test_unit
-      create    test/helpers/user_helper_test.rb
-```
-
-The generated test file contains the following code:
+A helper test looks like so:
 
 ```ruby
 require 'test_helper'
@@ -1049,7 +1050,6 @@ The built-in `minitest` based testing is not the only way to test Rails applicat
 
 * [NullDB](http://avdi.org/projects/nulldb/), a way to speed up testing by avoiding database use.
 * [Factory Girl](https://github.com/thoughtbot/factory_girl/tree/master), a replacement for fixtures.
-* [Machinist](https://github.com/notahat/machinist/tree/master), another replacement for fixtures.
 * [Fixture Builder](https://github.com/rdy/fixture_builder), a tool that compiles Ruby factories into fixtures before a test run.
 * [MiniTest::Spec Rails](https://github.com/metaskills/minitest-spec-rails), use the MiniTest::Spec DSL within your rails tests.
 * [Shoulda](http://www.thoughtbot.com/projects/shoulda), an extension to `test/unit` with additional helpers, macros, and assertions.

@@ -13,6 +13,23 @@ module ActiveRecord
       assert_equal expected.to_s, actual.to_s, message
     end
 
+    def capture(stream)
+      stream = stream.to_s
+      captured_stream = Tempfile.new(stream)
+      stream_io = eval("$#{stream}")
+      origin_stream = stream_io.dup
+      stream_io.reopen(captured_stream)
+
+      yield
+
+      stream_io.rewind
+      return captured_stream.read
+    ensure
+      captured_stream.close
+      captured_stream.unlink
+      stream_io.reopen(origin_stream)
+    end
+
     def capture_sql
       SQLCounter.clear_log
       yield
@@ -76,8 +93,8 @@ module ActiveRecord
     # ignored SQL, or better yet, use a different notification for the queries
     # instead examining the SQL content.
     oracle_ignored     = [/^select .*nextval/i, /^SAVEPOINT/, /^ROLLBACK TO/, /^\s*select .* from all_triggers/im, /^\s*select .* from all_constraints/im, /^\s*select .* from all_tab_cols/im]
-    mysql_ignored      = [/^SHOW TABLES/i, /^SHOW FULL FIELDS/, /^SHOW CREATE TABLE /i]
-    postgresql_ignored = [/^\s*select\b.*\bfrom\b.*pg_namespace\b/im, /^\s*select\b.*\battname\b.*\bfrom\b.*\bpg_attribute\b/im, /^SHOW search_path/i]
+    mysql_ignored      = [/^SHOW TABLES/i, /^SHOW FULL FIELDS/, /^SHOW CREATE TABLE /i, /^SHOW VARIABLES /]
+    postgresql_ignored = [/^\s*select\b.*\bfrom\b.*pg_namespace\b/im, /^\s*select tablename\b.*from pg_tables\b/im, /^\s*select\b.*\battname\b.*\bfrom\b.*\bpg_attribute\b/im, /^SHOW search_path/i]
     sqlite3_ignored =    [/^\s*SELECT name\b.*\bFROM sqlite_master/im]
 
     [oracle_ignored, mysql_ignored, postgresql_ignored, sqlite3_ignored].each do |db_ignored_sql|

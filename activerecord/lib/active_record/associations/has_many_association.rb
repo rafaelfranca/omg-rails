@@ -41,6 +41,14 @@ module ActiveRecord
         end
       end
 
+      def empty?
+        if has_cached_counter?
+          size.zero?
+        else
+          super
+        end
+      end
+
       private
 
         # Returns the number of records in this collection.
@@ -80,11 +88,22 @@ module ActiveRecord
         end
 
         def update_counter(difference, reflection = reflection())
+          update_counter_in_database(difference, reflection)
+          update_counter_in_memory(difference, reflection)
+        end
+
+        def update_counter_in_database(difference, reflection = reflection())
           if has_cached_counter?(reflection)
             counter = cached_counter_attribute_name(reflection)
             owner.class.update_counters(owner.id, counter => difference)
+          end
+        end
+
+        def update_counter_in_memory(difference, reflection = reflection())
+          if has_cached_counter?(reflection)
+            counter = cached_counter_attribute_name(reflection)
             owner[counter] += difference
-            owner.changed_attributes.delete(counter) # eww
+            owner.send(:clear_attribute_changes, counter) # eww
           end
         end
 
@@ -100,8 +119,12 @@ module ActiveRecord
         # Hence this method.
         def inverse_updates_counter_cache?(reflection = reflection())
           counter_name = cached_counter_attribute_name(reflection)
+          inverse_updates_counter_named?(counter_name, reflection)
+        end
+
+        def inverse_updates_counter_named?(counter_name, reflection = reflection())
           reflection.klass._reflections.values.any? { |inverse_reflection|
-            :belongs_to == inverse_reflection.macro &&
+            inverse_reflection.belongs_to? &&
             inverse_reflection.counter_cache_column == counter_name
           }
         end
@@ -136,6 +159,25 @@ module ActiveRecord
           else
             false
           end
+        end
+
+        def concat_records(records, *)
+          update_counter_if_success(super, records.length)
+        end
+
+        def _create_record(attributes, *)
+          if attributes.is_a?(Array)
+            super
+          else
+            update_counter_if_success(super, 1)
+          end
+        end
+
+        def update_counter_if_success(saved_successfully, difference)
+          if saved_successfully
+            update_counter_in_memory(difference)
+          end
+          saved_successfully
         end
     end
   end

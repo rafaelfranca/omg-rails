@@ -53,11 +53,6 @@ module ActiveRecord
       included do
         class_attribute :lock_optimistically, instance_writer: false
         self.lock_optimistically = true
-
-        is_lock_column = ->(name, _) { lock_optimistically && name == locking_column }
-        decorate_matching_attribute_types(is_lock_column, :_optimistic_locking) do |type|
-          LockingType.new(type)
-        end
       end
 
       def locking_enabled? #:nodoc:
@@ -167,10 +162,26 @@ module ActiveRecord
           counters = counters.merge(locking_column => 1) if locking_enabled?
           super
         end
+
+        private
+
+        # We need to apply this decorator here, rather than on module inclusion. The closure
+        # created by the matcher would otherwise evaluate for `ActiveRecord::Base`, not the
+        # sub class being decorated. As such, changes to `lock_optimistically`, or
+        # `locking_column` would not be picked up.
+        def inherited(subclass)
+          subclass.class_eval do
+            is_lock_column = ->(name, _) { lock_optimistically && name == locking_column }
+            decorate_matching_attribute_types(is_lock_column, :_optimistic_locking) do |type|
+              LockingType.new(type)
+            end
+          end
+          super
+        end
       end
     end
 
-    class LockingType < SimpleDelegator
+    class LockingType < SimpleDelegator # :nodoc:
       def type_cast_from_database(value)
         # `nil` *should* be changed to 0
         super.to_i

@@ -11,8 +11,6 @@ require 'models/minivan'
 require 'models/speedometer'
 require 'models/ship_part'
 
-Company.has_many :accounts
-
 class NumericData < ActiveRecord::Base
   self.table_name = 'numeric_data'
 
@@ -22,7 +20,7 @@ class NumericData < ActiveRecord::Base
 end
 
 class CalculationsTest < ActiveRecord::TestCase
-  fixtures :companies, :accounts, :topics
+  fixtures :companies, :accounts, :topics, :speedometers, :minivans
 
   def test_should_sum_field
     assert_equal 318, Account.sum(:credit_limit)
@@ -51,11 +49,6 @@ class CalculationsTest < ActiveRecord::TestCase
 
   def test_should_return_nil_as_average
     assert_nil NumericData.average(:bank_balance)
-  end
-
-  def test_type_cast_calculated_value_should_convert_db_averages_of_fixnum_class_to_decimal
-    assert_equal 0, NumericData.all.send(:type_cast_calculated_value, 0, nil, 'avg')
-    assert_equal 53.0, NumericData.all.send(:type_cast_calculated_value, 53, nil, 'avg')
   end
 
   def test_should_get_maximum_of_field

@@ -48,7 +48,7 @@ module ActiveRecord
       def build_relation(klass, table, attribute, value) #:nodoc:
         if reflection = klass._reflect_on_association(attribute)
           attribute = reflection.foreign_key
-          value = value.attributes[reflection.primary_key_column.name] unless value.nil?
+          value = value.attributes[reflection.klass.primary_key] unless value.nil?
         end
 
         attribute_name = attribute.to_s
@@ -61,9 +61,11 @@ module ActiveRecord
 
         column = klass.columns_hash[attribute_name]
         value  = klass.connection.type_cast(value, column)
-        value  = value.to_s[0, column.limit] if value && column.limit && column.text?
+        if value.is_a?(String) && column.limit
+          value = value.to_s[0, column.limit]
+        end
 
-        if !options[:case_sensitive] && value && column.text?
+        if !options[:case_sensitive] && value.is_a?(String)
           # will use SQL LOWER function before comparison, unless it detects a case insensitive collation
           klass.connection.case_insensitive_comparison(table, attribute, column, value)
         else
@@ -150,7 +152,7 @@ module ActiveRecord
       #   or <tt>if: Proc.new { |user| user.signup_step > 2 }</tt>). The method,
       #   proc or string should return or evaluate to a +true+ or +false+ value.
       # * <tt>:unless</tt> - Specifies a method, proc or string to call to
-      #   determine if the validation should ot occur (e.g. <tt>unless: :skip_validation</tt>,
+      #   determine if the validation should not occur (e.g. <tt>unless: :skip_validation</tt>,
       #   or <tt>unless: Proc.new { |user| user.signup_step <= 2 }</tt>). The
       #   method, proc or string should return or evaluate to a +true+ or +false+
       #   value.

@@ -55,6 +55,17 @@ module ActiveRecord
       delegate :type_for_attribute, to: :class
     end
 
+    # Derives the join table name for +first_table+ and +second_table+. The
+    # table names appear in alphabetical order. A common prefix is removed
+    # (useful for namespaced models like Music::Artist and Music::Record):
+    #
+    #   artists, records => artists_records
+    #   records, artists => artists_records
+    #   music_artists, music_records => music_artists_records
+    def self.derive_join_table_name(first_table, second_table) # :nodoc:
+      [first_table.to_s, second_table.to_s].sort.join("\0").gsub(/^(.*_)(.+)\0\1(.+)/, '\1\2_\3').tr("\0", "_")
+    end
+
     module ClassMethods
       # Guesses the table name (in forced lower-case) based on the name of the class in the
       # inheritance hierarchy descending directly from ActiveRecord::Base. So if the hierarchy
@@ -219,28 +230,29 @@ module ActiveRecord
         connection.schema_cache.table_exists?(table_name)
       end
 
+      def attributes_builder # :nodoc:
+        @attributes_builder ||= AttributeSet::Builder.new(column_types)
+      end
+
       def column_types # :nodoc:
-        @column_types ||= Hash[columns.map { |column| [column.name, column.cast_type] }]
+        @column_types ||= columns_hash.transform_values(&:cast_type).tap do |h|
+          h.default = Type::Value.new
+        end
       end
 
       def type_for_attribute(attr_name) # :nodoc:
-        column_types.fetch(attr_name) { Type::Value.new }
+        column_types[attr_name]
       end
 
       # Returns a hash where the keys are column names and the values are
       # default values when instantiating the AR object for this table.
       def column_defaults
-        @column_defaults ||= Hash[columns_hash.map { |name, column|
-          [name, column.type_cast_from_database(column.default)]
-        }]
+        default_attributes.to_hash
       end
 
-      # Returns a hash where the keys are the column names and the values
-      # are the default values suitable for use in `@raw_attriubtes`
-      def raw_column_defaults # :nodoc:
-        @raw_column_defaults ||= Hash[columns_hash.map { |name, column|
-          [name, column.default]
-        }]
+      def default_attributes # :nodoc:
+        @default_attributes ||= attributes_builder.build_from_database(
+          columns_hash.transform_values(&:default))
       end
 
       # Returns an array of column names as strings.
@@ -285,17 +297,13 @@ module ActiveRecord
         undefine_attribute_methods
         connection.schema_cache.clear_table_cache!(table_name) if table_exists?
 
-        @arel_engine             = nil
-        @column_defaults         = nil
-        @raw_column_defaults     = nil
-        @column_names            = nil
-        @column_types            = nil
-        @content_columns         = nil
-        @dynamic_methods_hash    = nil
-        @inheritance_column      = nil unless defined?(@explicit_inheritance_column) && @explicit_inheritance_column
-        @relation                = nil
-        @time_zone_column_names  = nil
-        @cached_time_zone        = nil
+        @arel_engine        = nil
+        @column_names       = nil
+        @column_types       = nil
+        @content_columns    = nil
+        @default_attributes = nil
+        @inheritance_column = nil unless defined?(@explicit_inheritance_column) && @explicit_inheritance_column
+        @relation           = nil
       end
 
       private

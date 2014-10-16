@@ -161,21 +161,14 @@ module ActiveRecord
   # in the <tt>db/migrate/</tt> directory where <tt>timestamp</tt> is the
   # UTC formatted date and time that the migration was generated.
   #
-  # You may then edit the <tt>up</tt> and <tt>down</tt> methods of
-  # MyNewMigration.
-  #
   # There is a special syntactic shortcut to generate migrations that add fields to a table.
   #
   #   rails generate migration add_fieldname_to_tablename fieldname:string
   #
   # This will generate the file <tt>timestamp_add_fieldname_to_tablename</tt>, which will look like this:
   #   class AddFieldnameToTablename < ActiveRecord::Migration
-  #     def up
-  #       add_column :tablenames, :fieldname, :string
-  #     end
-  #
-  #     def down
-  #       remove_column :tablenames, :fieldname
+  #     def change
+  #       add_column :tablenames, :field, :string
   #     end
   #   end
   #
@@ -188,9 +181,12 @@ module ActiveRecord
   #
   # To roll the database back to a previous migration version, use
   # <tt>rake db:migrate VERSION=X</tt> where <tt>X</tt> is the version to which
-  # you wish to downgrade. If any of the migrations throw an
-  # <tt>ActiveRecord::IrreversibleMigration</tt> exception, that step will fail and you'll
-  # have some manual work to do.
+  # you wish to downgrade. Alternatively, you can also use the STEP option if you
+  # wish to rollback last few migrations. <tt>rake db:migrate STEP=2</tt> will rollback
+  # the latest two migrations.
+  # 
+  # If any of the migrations throw an <tt>ActiveRecord::IrreversibleMigration</tt> exception, 
+  # that step will fail and you'll have some manual work to do.
   #
   # == Database support
   #
@@ -366,21 +362,26 @@ module ActiveRecord
     # This class is used to verify that all migrations have been run before
     # loading a web page if config.active_record.migration_error is set to :page_load
     class CheckPending
-      def initialize(app, connection = Base.connection)
+      def initialize(app)
         @app = app
-        @connection = connection
         @last_check = 0
       end
 
       def call(env)
-        if @connection.supports_migrations?
+        if connection.supports_migrations?
           mtime = ActiveRecord::Migrator.last_migration.mtime.to_i
           if @last_check < mtime
-            ActiveRecord::Migration.check_pending!(@connection)
+            ActiveRecord::Migration.check_pending!(connection)
             @last_check = mtime
           end
         end
         @app.call(env)
+      end
+
+      private
+
+      def connection
+        ActiveRecord::Base.connection
       end
     end
 
@@ -394,7 +395,7 @@ module ActiveRecord
 
       def load_schema_if_pending!
         if ActiveRecord::Migrator.needs_migration?
-          ActiveRecord::Tasks::DatabaseTasks.load_schema
+          ActiveRecord::Tasks::DatabaseTasks.load_schema_current
           check_pending!
         end
       end
@@ -645,7 +646,9 @@ module ActiveRecord
         unless @connection.respond_to? :revert
           unless arguments.empty? || [:execute, :enable_extension, :disable_extension].include?(method)
             arguments[0] = proper_table_name(arguments.first, table_name_options)
-            arguments[1] = proper_table_name(arguments.second, table_name_options) if method == :rename_table
+            if [:rename_table, :add_foreign_key].include?(method)
+              arguments[1] = proper_table_name(arguments.second, table_name_options)
+            end
           end
         end
         return super unless connection.respond_to?(method)
@@ -807,43 +810,42 @@ module ActiveRecord
         migrations = migrations(migrations_paths)
         migrations.select! { |m| yield m } if block_given?
 
-        self.new(:up, migrations, target_version).migrate
+        new(:up, migrations, target_version).migrate
       end
 
       def down(migrations_paths, target_version = nil, &block)
         migrations = migrations(migrations_paths)
         migrations.select! { |m| yield m } if block_given?
 
-        self.new(:down, migrations, target_version).migrate
+        new(:down, migrations, target_version).migrate
       end
 
       def run(direction, migrations_paths, target_version)
-        self.new(direction, migrations(migrations_paths), target_version).run
+        new(direction, migrations(migrations_paths), target_version).run
       end
 
       def open(migrations_paths)
-        self.new(:up, migrations(migrations_paths), nil)
+        new(:up, migrations(migrations_paths), nil)
       end
 
       def schema_migrations_table_name
         SchemaMigration.table_name
       end
 
-      def get_all_versions
-        SchemaMigration.all.map { |x| x.version.to_i }.sort
-      end
-
-      def current_version(connection = Base.connection)
-        sm_table = schema_migrations_table_name
-        if connection.table_exists?(sm_table)
-          get_all_versions.max || 0
+      def get_all_versions(connection = Base.connection)
+        if connection.table_exists?(schema_migrations_table_name)
+          SchemaMigration.all.map { |x| x.version.to_i }.sort
         else
-          0
+          []
         end
       end
 
+      def current_version(connection = Base.connection)
+        get_all_versions(connection).max || 0
+      end
+
       def needs_migration?(connection = Base.connection)
-        current_version(connection) < last_version
+        (migrations(migrations_paths).collect(&:version) - get_all_versions(connection)).size > 0
       end
 
       def last_version
@@ -885,7 +887,7 @@ module ActiveRecord
       private
 
       def move(direction, migrations_paths, steps)
-        migrator = self.new(direction, migrations(migrations_paths))
+        migrator = new(direction, migrations(migrations_paths))
         start_index = migrator.migrations.index(migrator.current_migration)
 
         if start_index

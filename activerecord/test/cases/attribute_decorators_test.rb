@@ -28,7 +28,7 @@ module ActiveRecord
 
     teardown do
       return unless @connection
-      @connection.execute 'DROP TABLE IF EXISTS attribute_decorators_model'
+      @connection.drop_table 'attribute_decorators_model' if @connection.table_exists? 'attribute_decorators_model'
       Model.attribute_type_decorations.clear
       Model.reset_column_information
     end
@@ -44,8 +44,8 @@ module ActiveRecord
     end
 
     test "decoration does not eagerly load existing columns" do
+      Model.reset_column_information
       assert_no_queries do
-        Model.reset_column_information
         Model.decorate_attribute_type(:a_string, :test) { |t| StringDecorator.new(t) }
       end
     end

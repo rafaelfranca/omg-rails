@@ -3,6 +3,8 @@ require 'active_support/core_ext/object/to_query'
 require 'active_support/core_ext/module/anonymous'
 require 'active_support/core_ext/hash/keys'
 
+require 'rails-dom-testing'
+
 module ActionController
   module TemplateAssertions
     extend ActiveSupport::Concern
@@ -12,11 +14,13 @@ module ActionController
       teardown :teardown_subscriptions
     end
 
+    RENDER_TEMPLATE_INSTANCE_VARIABLES = %w{partials templates layouts files}.freeze
+
     def setup_subscriptions
-      @_partials = Hash.new(0)
-      @_templates = Hash.new(0)
-      @_layouts = Hash.new(0)
-      @_files = Hash.new(0)
+      RENDER_TEMPLATE_INSTANCE_VARIABLES.each do |instance_variable|
+        instance_variable_set("@_#{instance_variable}", Hash.new(0))
+      end
+
       @_subscribers = []
 
       @_subscribers << ActiveSupport::Notifications.subscribe("render_template.action_view") do |_name, _start, _finish, _id, payload|
@@ -30,25 +34,21 @@ module ActionController
       end
 
       @_subscribers << ActiveSupport::Notifications.subscribe("!render_template.action_view") do |_name, _start, _finish, _id, payload|
-        path = payload[:virtual_path]
-        next unless path
-        partial = path =~ /^.*\/_[^\/]*$/
+        if virtual_path = payload[:virtual_path]
+          partial = virtual_path =~ /^.*\/_[^\/]*$/
 
-        if partial
-          @_partials[path] += 1
-          @_partials[path.split("/").last] += 1
-        end
+          if partial
+            @_partials[virtual_path] += 1
+            @_partials[virtual_path.split("/").last] += 1
+          end
 
-        @_templates[path] += 1
-      end
-
-      @_subscribers << ActiveSupport::Notifications.subscribe("!render_template.action_view") do |_name, _start, _finish, _id, payload|
-        next if payload[:virtual_path] # files don't have virtual path
-
-        path = payload[:identifier]
-        if path
-          @_files[path] += 1
-          @_files[path.split("/").last] += 1
+          @_templates[virtual_path] += 1
+        else
+          path = payload[:identifier]
+          if path
+            @_files[path] += 1
+            @_files[path.split("/").last] += 1
+          end
         end
       end
     end
@@ -60,10 +60,14 @@ module ActionController
     end
 
     def process(*args)
-      @_partials = Hash.new(0)
-      @_templates = Hash.new(0)
-      @_layouts = Hash.new(0)
+      reset_template_assertion
       super
+    end
+
+    def reset_template_assertion
+      RENDER_TEMPLATE_INSTANCE_VARIABLES.each do |instance_variable|
+        instance_variable_get("@_#{instance_variable}").clear
+      end
     end
 
     # Asserts that the request was rendered with the appropriate template file or partials.
@@ -88,6 +92,13 @@ module ActionController
     #
     #   # assert that no partials were rendered
     #   assert_template partial: false
+    #
+    #   # assert that a file was rendered
+    #   assert_template file: "README.rdoc"
+    #
+    #   # assert that no file was rendered
+    #   assert_template file: nil
+    #   assert_template file: false
     #
     # In a view test case, you can also assert that specific locals are passed
     # to partials:
@@ -138,6 +149,8 @@ module ActionController
 
         if options[:file]
           assert_includes @_files.keys, options[:file]
+        elsif options.key?(:file)
+          assert @_files.blank?, "expected no files but #{@_files.keys} was rendered"
         end
 
         if expected_partial = options[:partial]
@@ -233,7 +246,6 @@ module ActionController
       @formats = nil
       @env.delete_if { |k, v| k =~ /^(action_dispatch|rack)\.request/ }
       @env.delete_if { |k, v| k =~ /^action_dispatch\.rescue/ }
-      @symbolized_path_params = nil
       @method = @request_method = nil
       @fullpath = @ip = @remote_ip = @protocol = nil
       @env['action_dispatch.request.query_parameters'] = {}
@@ -432,6 +444,7 @@ module ActionController
       extend ActiveSupport::Concern
       include ActionDispatch::TestProcess
       include ActiveSupport::Testing::ConstantLookup
+      include Rails::Dom::Testing::Assertions
 
       attr_reader :response, :request
 
@@ -455,7 +468,6 @@ module ActionController
         end
 
         def controller_class=(new_class)
-          prepare_controller_class(new_class) if new_class
           self._controller_class = new_class
         end
 
@@ -472,11 +484,6 @@ module ActionController
             Class === constant && constant < ActionController::Metal
           end
         end
-
-        def prepare_controller_class(new_class)
-          new_class.send :include, ActionController::TestCase::RaiseActionExceptions
-        end
-
       end
 
       # Simulate a GET request with the given parameters.
@@ -593,7 +600,6 @@ module ActionController
 
         unless @controller.respond_to?(:recycle!)
           @controller.extend(Testing::Functional)
-          @controller.class.class_eval { include Testing }
         end
 
         @request.recycle!
@@ -681,6 +687,11 @@ module ActionController
       end
 
       private
+
+      def document_root_element
+        html_document
+      end
+
       def check_required_ivars
         # Sanity check for required instance variables so we can give an
         # understandable error message.
@@ -695,12 +706,11 @@ module ActionController
         unless @request.env["PATH_INFO"]
           options = @controller.respond_to?(:url_options) ? @controller.__send__(:url_options).merge(parameters) : parameters
           options.update(
-            :only_path => true,
             :action => action,
             :relative_url_root => nil,
             :_recall => @request.path_parameters)
 
-          url, query_string = @routes.url_for(options).split("?", 2)
+          url, query_string = @routes.path_for(options).split("?", 2)
 
           @request.env["SCRIPT_NAME"] = @controller.config.relative_url_root
           @request.env["PATH_INFO"] = url
@@ -712,34 +722,6 @@ module ActionController
         return true unless parameters.key?(:format)
         Mime.fetch(parameters[:format]) { Mime['html'] }.html?
       end
-    end
-
-    # When the request.remote_addr remains the default for testing, which is 0.0.0.0, the exception is simply raised inline
-    # (skipping the regular exception handling from rescue_action). If the request.remote_addr is anything else, the regular
-    # rescue_action process takes place. This means you can test your rescue_action code by setting remote_addr to something else
-    # than 0.0.0.0.
-    #
-    # The exception is stored in the exception accessor for further inspection.
-    module RaiseActionExceptions
-      def self.included(base) #:nodoc:
-        unless base.method_defined?(:exception) && base.method_defined?(:exception=)
-          base.class_eval do
-            attr_accessor :exception
-            protected :exception, :exception=
-          end
-        end
-      end
-
-      protected
-        def rescue_action_without_handler(e)
-          self.exception = e
-
-          if request.remote_addr == "0.0.0.0"
-            raise(e)
-          else
-            super(e)
-          end
-        end
     end
 
     include Behavior

@@ -361,6 +361,8 @@ class Product < ActiveRecord::Base
 end
 ```
 
+Alternatively, you can require that the specified attribute does _not_ match the regular expression by using the `:without` option.
+
 The default error message is _"is invalid"_.
 
 ### `inclusion`
@@ -524,9 +526,15 @@ If you validate the presence of an object associated via a `has_one` or
 `marked_for_destruction?`.
 
 Since `false.blank?` is true, if you want to validate the presence of a boolean
-field you should use `validates :field_name, inclusion: { in: [true, false] }`.
+field you should use one of the following validations:
 
-The default error message is _"can't be blank"_.
+```ruby
+validates :boolean_field_name, presence: true
+validates :boolean_field_name, inclusion: { in: [true, false] }
+validates :boolean_field_name, exclusion: { in: [nil] }
+```
+By using one of these validations, you will ensure the value will NOT be `nil`
+which would result in a `NULL` value in most cases.
 
 ### `absence`
 
@@ -871,7 +879,7 @@ should happen, an `Array` can be used. Moreover, you can apply both `:if` and
 ```ruby
 class Computer < ActiveRecord::Base
   validates :mouse, presence: true,
-                    if: ["market.retail?", :desktop?]
+                    if: ["market.retail?", :desktop?],
                     unless: Proc.new { |c| c.trackpad.present? }
 end
 ```
@@ -910,8 +918,8 @@ end
 The easiest way to add custom validators for validating individual attributes
 is with the convenient `ActiveModel::EachValidator`. In this case, the custom
 validator class must implement a `validate_each` method which takes three
-arguments: record, attribute and value which correspond to the instance, the
-attribute to be validated and the value of the attribute in the passed
+arguments: record, attribute, and value. These correspond to the instance, the
+attribute to be validated, and the value of the attribute in the passed
 instance.
 
 ```ruby

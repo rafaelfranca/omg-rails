@@ -64,6 +64,8 @@ module ActiveModel
         include InstanceMethodsOnActivation
 
         if options.fetch(:validations, true)
+          include ActiveModel::Validations
+
           # This ensures the model has a password by checking whether the password_digest
           # is present, so that this works with both new and existing records. However,
           # when there is an error, the message is added to the password attribute instead
@@ -73,7 +75,7 @@ module ActiveModel
           end
 
           validates_length_of :password, maximum: ActiveModel::SecurePassword::MAX_PASSWORD_LENGTH_ALLOWED
-          validates_confirmation_of :password, if: ->{ password.present? }
+          validates_confirmation_of :password, allow_blank: true
         end
 
         # This code is necessary as long as the protected_attributes gem is supported.
@@ -103,7 +105,7 @@ module ActiveModel
       attr_reader :password
 
       # Encrypts the password into the +password_digest+ attribute, only if the
-      # new password is not blank.
+      # new password is not empty.
       #
       #   class User < ActiveRecord::Base
       #     has_secure_password validations: false
@@ -117,7 +119,7 @@ module ActiveModel
       def password=(unencrypted_password)
         if unencrypted_password.nil?
           self.password_digest = nil
-        elsif unencrypted_password.present?
+        elsif !unencrypted_password.empty?
           @password = unencrypted_password
           cost = ActiveModel::SecurePassword.min_cost ? BCrypt::Engine::MIN_COST : BCrypt::Engine.cost
           self.password_digest = BCrypt::Password.create(unencrypted_password, cost: cost)

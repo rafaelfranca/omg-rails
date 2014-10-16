@@ -5,8 +5,20 @@ module ActiveRecord
         :string
       end
 
-      def text?
-        true
+      def changed_in_place?(raw_old_value, new_value)
+        if new_value.is_a?(::String)
+          raw_old_value != new_value
+        end
+      end
+
+      def type_cast_for_database(value)
+        case value
+        when ::Numeric, ActiveSupport::Duration then value.to_s
+        when ::String then ::String.new(value)
+        when true then "1"
+        when false then "0"
+        else super
+        end
       end
 
       private
@@ -15,7 +27,8 @@ module ActiveRecord
         case value
         when true then "1"
         when false then "0"
-        else value.to_s
+        # String.new is slightly faster than dup
+        else ::String.new(value.to_s)
         end
       end
     end

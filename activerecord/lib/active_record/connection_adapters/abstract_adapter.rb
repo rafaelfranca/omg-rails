@@ -45,7 +45,8 @@ module ActiveRecord
     end
 
     autoload_at 'active_record/connection_adapters/abstract/transaction' do
-      autoload :ClosedTransaction
+      autoload :TransactionManager
+      autoload :NullTransaction
       autoload :RealTransaction
       autoload :SavepointTransaction
       autoload :TransactionState
@@ -65,6 +66,7 @@ module ActiveRecord
     # Most of the methods in the adapter are useful during migrations. Most
     # notably, the instance methods provided by SchemaStatement are very useful.
     class AbstractAdapter
+      ADAPTER_NAME = 'Abstract'.freeze
       include Quoting, DatabaseStatements, SchemaStatements
       include DatabaseLimits
       include QueryCache
@@ -166,7 +168,7 @@ module ActiveRecord
       # Returns the human-readable name of the adapter. Use mixed case - one
       # can always use downcase if needed.
       def adapter_name
-        'Abstract'
+        self.class::ADAPTER_NAME
       end
 
       # Does this adapter support migrations?
@@ -230,6 +232,16 @@ module ActiveRecord
       # Does this adapter support creating indexes in the same statement as
       # creating the table?
       def supports_indexes_in_create?
+        false
+      end
+
+      # Does this adapter support creating foreign key constraints?
+      def supports_foreign_keys?
+        false
+      end
+
+      # Does this adapter support views?
+      def supports_views?
         false
       end
 
@@ -352,7 +364,7 @@ module ActiveRecord
       end
 
       def current_savepoint_name
-        "active_record_#{open_transactions}"
+        current_transaction.savepoint_name
       end
 
       # Check the connection back in to the connection pool
@@ -370,11 +382,11 @@ module ActiveRecord
         Column.new(name, default, cast_type, sql_type, null)
       end
 
-      protected
-
       def lookup_cast_type(sql_type) # :nodoc:
         type_map.lookup(sql_type)
       end
+
+      protected
 
       def initialize_type_map(m) # :nodoc:
         register_class_with_limit m, %r(boolean)i,   Type::Boolean

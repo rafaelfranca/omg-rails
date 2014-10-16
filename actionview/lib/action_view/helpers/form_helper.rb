@@ -51,9 +51,7 @@ module ActionView
     # The HTML generated for this would be (modulus formatting):
     #
     #   <form action="/people" class="new_person" id="new_person" method="post">
-    #     <div style="display:none">
-    #       <input name="authenticity_token" type="hidden" value="NrOp5bsjoLRuK8IW5+dQEYjKGUJDe7TQoZVvq95Wteg=" />
-    #     </div>
+    #     <input name="authenticity_token" type="hidden" value="NrOp5bsjoLRuK8IW5+dQEYjKGUJDe7TQoZVvq95Wteg=" />
     #     <label for="person_first_name">First name</label>:
     #     <input id="person_first_name" name="person[first_name]" type="text" /><br />
     #
@@ -81,10 +79,8 @@ module ActionView
     # the code above as is would yield instead:
     #
     #   <form action="/people/256" class="edit_person" id="edit_person_256" method="post">
-    #     <div style="display:none">
-    #       <input name="_method" type="hidden" value="patch" />
-    #       <input name="authenticity_token" type="hidden" value="NrOp5bsjoLRuK8IW5+dQEYjKGUJDe7TQoZVvq95Wteg=" />
-    #     </div>
+    #     <input name="_method" type="hidden" value="patch" />
+    #     <input name="authenticity_token" type="hidden" value="NrOp5bsjoLRuK8IW5+dQEYjKGUJDe7TQoZVvq95Wteg=" />
     #     <label for="person_first_name">First name</label>:
     #     <input id="person_first_name" name="person[first_name]" type="text" value="John" /><br />
     #
@@ -142,7 +138,7 @@ module ActionView
       # will get expanded to
       #
       #   <%= text_field :person, :first_name %>
-      # which results in an html <tt><input></tt> tag whose +name+ attribute is
+      # which results in an HTML <tt><input></tt> tag whose +name+ attribute is
       # <tt>person[first_name]</tt>. This means that when the form is submitted,
       # the value entered by the user will be available in the controller as
       # <tt>params[:person][:first_name]</tt>.
@@ -315,9 +311,7 @@ module ActionView
       # The HTML generated for this would be:
       #
       #   <form action='http://www.example.com' method='post' data-remote='true'>
-      #     <div style='display:none'>
-      #       <input name='_method' type='hidden' value='patch' />
-      #     </div>
+      #     <input name='_method' type='hidden' value='patch' />
       #     ...
       #   </form>
       #
@@ -333,9 +327,7 @@ module ActionView
       # The HTML generated for this would be:
       #
       #   <form action='http://www.example.com' method='post' data-behavior='autosave' name='go'>
-      #     <div style='display:none'>
-      #       <input name='_method' type='hidden' value='patch' />
-      #     </div>
+      #     <input name='_method' type='hidden' value='patch' />
       #     ...
       #   </form>
       #
@@ -482,7 +474,7 @@ module ActionView
       #       Admin?  : <%= permission_fields.check_box :admin %>
       #     <% end %>
       #
-      #     <%= f.submit %>
+      #     <%= person_form.submit %>
       #   <% end %>
       #
       # In this case, the checkbox field will be represented by an HTML +input+
@@ -1013,6 +1005,18 @@ module ActionView
       #   date_field("user", "born_on", value: "1984-05-12")
       #   # => <input id="user_born_on" name="user[born_on]" type="date" value="1984-05-12" />
       #
+      # You can create values for the "min" and "max" attributes by passing
+      # instances of Date or Time to the options hash.
+      #
+      #   date_field("user", "born_on", min: Date.today)
+      #   # => <input id="user_born_on" name="user[born_on]" type="date" min="2014-05-20" />
+      #
+      # Alternatively, you can pass a String formatted as an ISO8601 date as the
+      # values for "min" and "max."
+      #
+      #   date_field("user", "born_on", min: "2014-05-20")
+      #   # => <input id="user_born_on" name="user[born_on]" type="date" min="2014-05-20" />
+      #
       def date_field(object_name, method, options = {})
         Tags::DateField.new(object_name, method, self, options).render
       end
@@ -1029,6 +1033,18 @@ module ActionView
       # === Example
       #   time_field("task", "started_at")
       #   # => <input id="task_started_at" name="task[started_at]" type="time" />
+      #
+      # You can create values for the "min" and "max" attributes by passing
+      # instances of Date or Time to the options hash.
+      #
+      #   time_field("task", "started_at", min: Time.now)
+      #   # => <input id="task_started_at" name="task[started_at]" type="time" min="01:00:00.000" />
+      #
+      # Alternatively, you can pass a String formatted as an ISO8601 time as the
+      # values for "min" and "max."
+      #
+      #   time_field("task", "started_at", min: "01:00:00")
+      #   # => <input id="task_started_at" name="task[started_at]" type="time" min="01:00:00.000" />
       #
       def time_field(object_name, method, options = {})
         Tags::TimeField.new(object_name, method, self, options).render
@@ -1047,6 +1063,18 @@ module ActionView
       #   datetime_field("user", "born_on")
       #   # => <input id="user_born_on" name="user[born_on]" type="datetime" value="1984-01-12T00:00:00.000+0000" />
       #
+      # You can create values for the "min" and "max" attributes by passing
+      # instances of Date or Time to the options hash.
+      #
+      #   datetime_field("user", "born_on", min: Date.today)
+      #   # => <input id="user_born_on" name="user[born_on]" type="datetime" min="2014-05-20T00:00:00.000+0000" />
+      #
+      # Alternatively, you can pass a String formatted as an ISO8601 datetime
+      # with UTC offset as the values for "min" and "max."
+      #
+      #   datetime_field("user", "born_on", min: "2014-05-20T00:00:00+0000")
+      #   # => <input id="user_born_on" name="user[born_on]" type="datetime" min="2014-05-20T00:00:00.000+0000" />
+      #
       def datetime_field(object_name, method, options = {})
         Tags::DatetimeField.new(object_name, method, self, options).render
       end
@@ -1063,6 +1091,18 @@ module ActionView
       #   @user.born_on = Date.new(1984, 1, 12)
       #   datetime_local_field("user", "born_on")
       #   # => <input id="user_born_on" name="user[born_on]" type="datetime-local" value="1984-01-12T00:00:00" />
+      #
+      # You can create values for the "min" and "max" attributes by passing
+      # instances of Date or Time to the options hash.
+      #
+      #   datetime_local_field("user", "born_on", min: Date.today)
+      #   # => <input id="user_born_on" name="user[born_on]" type="datetime-local" min="2014-05-20T00:00:00.000" />
+      #
+      # Alternatively, you can pass a String formatted as an ISO8601 datetime as
+      # the values for "min" and "max."
+      #
+      #   datetime_local_field("user", "born_on", min: "2014-05-20T00:00:00")
+      #   # => <input id="user_born_on" name="user[born_on]" type="datetime-local" min="2014-05-20T00:00:00.000" />
       #
       def datetime_local_field(object_name, method, options = {})
         Tags::DatetimeLocalField.new(object_name, method, self, options).render
@@ -1815,8 +1855,8 @@ module ActionView
           object = convert_to_model(@object)
           key    = object ? (object.persisted? ? :update : :create) : :submit
 
-          model = if object.class.respond_to?(:model_name)
-            object.class.model_name.human
+          model = if object.respond_to?(:model_name)
+            object.model_name.human
           else
             @object_name.to_s.humanize
           end
