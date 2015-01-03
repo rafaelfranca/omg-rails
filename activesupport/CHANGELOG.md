@@ -1,3 +1,8 @@
+*   Remove deprecated methods `ActiveSupport::Cache::Store.instrument` and
+    `ActiveSupport::Cache::Store.instrument=`.
+
+    *Rafael Mendonça França*
+
 *   Deprecate `MissingSourceFile` in favor of `LoadError`.
 
     `MissingSourceFile` was just an alias to `LoadError` and was not being
