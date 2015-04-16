@@ -246,7 +246,7 @@ module Rails
       end
 
       def assets_gemfile_entry
-        return [] if options[:skip_sprockets]
+        return [] if options[:skip_sprockets] || options[:api]
 
         gems = []
         gems << GemfileEntry.version('sass-rails', '~> 5.0',
@@ -274,7 +274,7 @@ module Rails
       end
 
       def javascript_gemfile_entry
-        if options[:skip_javascript]
+        if options[:skip_javascript] || options[:api]
           []
         else
           gems = [coffee_gemfile_entry, javascript_runtime_gemfile_entry]
