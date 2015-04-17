@@ -63,6 +63,7 @@ module Rails
     }
 
     def self.configure!(config) #:nodoc:
+      api_only! if config.api_only
       no_color! unless config.colorize_logging
       aliases.deep_merge! config.aliases
       options.deep_merge! config.options
@@ -98,6 +99,10 @@ module Rails
     #   Rails::Generators.fallbacks[:shoulda] = :test_unit
     def self.fallbacks
       @fallbacks ||= {}
+    end
+
+    def self.api_only!
+      hide_namespaces "assets", "helper", "css", "js"
     end
 
     # Remove the color from output.
