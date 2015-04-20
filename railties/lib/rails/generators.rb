@@ -106,6 +106,7 @@ module Rails
 
       options[:rails].merge!(
         api: true,
+        assets: false,
         helper: false,
         template_engine: nil
       )
