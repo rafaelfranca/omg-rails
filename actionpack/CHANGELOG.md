@@ -1,3 +1,9 @@
+*   Add support for API only apps.
+    ActionController::API is added as a replacement of
+    ActionController::Base for this kind of applications.
+
+    *Santiago Pastorino & Jorge Bejar*
+
 *   Fix rake routes not showing the right format when
     nesting multiple routes.
 
