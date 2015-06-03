@@ -204,7 +204,7 @@ module ActionView
     include ActionView::Rendering
 
     included do
-      class_attribute :_layout_param, :_layout_conditions, :_layout_root, :instance_accessor => false
+      class_attribute :_layout_param, :_layout_conditions, :_layout_root, instance_accessor: false
       self._layout_param      = nil
       self._layout_conditions = nil
       self._layout_root       = self
@@ -230,7 +230,7 @@ module ActionView
         is_valid = (layout == false || layout.nil? || layout.is_a?(Proc) || layout.is_a?(String) || layout.is_a?(Symbol))
         raise ArgumentError, "Layouts must be specified as a String, Symbol, Proc, false, or nil" unless is_valid
 
-        conditions.each {|k, v| conditions[k] = Array(v).map {|a| a.to_s} }
+        conditions.each { |k, v| conditions[k] = Array(v).map(&:to_s) }
         self._layout_conditions = conditions
 
         if layout.is_a?(Proc) # turn Proc layouts into "method" layouts, this allows for simpler LayoutFinder
@@ -353,7 +353,7 @@ module ActionView
     # either override this method in your controller to return false
     # for that action or set the <tt>action_has_layout</tt> attribute
     # to false before rendering.
-    def action_has_layout? # TODO: remove in 4.3.
+    def action_has_layout? # TODO: remove in 5.1.
       return if instance_variable_defined?(:@_action_has_layout) && @_action_has_layout == false
       true
     end

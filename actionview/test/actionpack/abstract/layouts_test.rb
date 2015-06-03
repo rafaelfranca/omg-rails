@@ -51,7 +51,7 @@ module AbstractControllerTests
 
       def action_has_layout_false
         # self.action_has_layout = false
-        render :template => ActionView::Template::Text.new("Hello string!")
+        render template: ActionView::Template::Text.new("Hello string!")
       end
 
       def overwrite_default
@@ -96,7 +96,7 @@ module AbstractControllerTests
 
     class AbstractWithStringChild < AbstractWithString
       def index
-        render :template => ActionView::Template::Text.new("Hello abstract child!")
+        render template: ActionView::Template::Text.new("Hello abstract child!")
       end
     end
 
@@ -104,7 +104,7 @@ module AbstractControllerTests
       layout nil
 
       def index
-        render :template => ActionView::Template::Text.new("Hello abstract child!")
+        render template: ActionView::Template::Text.new("Hello abstract child!")
       end
     end
 
@@ -232,11 +232,11 @@ module AbstractControllerTests
     end
 
     class WithOnlyConditionalFlipped < WithOnlyConditional
-      layout "hello_override", :only => :index
+      layout "hello_override", only: :index
     end
 
     class WithOnlyConditionalFlippedAndInheriting < WithOnlyConditional
-      layout nil, :only => :index
+      layout nil, only: :index
     end
 
     class WithExceptConditional < WithStringImpliedChild
@@ -252,23 +252,23 @@ module AbstractControllerTests
     end
 
     class WithConditionalOverride < WithString
-      layout "overwrite", :only => :overwritten
+      layout "overwrite", only: :overwritten
 
       def non_overwritten
-        render :template => ActionView::Template::Text.new("Hello non overwritten!")
+        render template: ActionView::Template::Text.new("Hello non overwritten!")
       end
 
       def overwritten
-        render :template => ActionView::Template::Text.new("Hello overwritten!")
+        render template: ActionView::Template::Text.new("Hello overwritten!")
       end
     end
 
     class WithConditionalOverrideFlipped < WithConditionalOverride
-      layout "hello_override", :only => :non_overwritten
+      layout "hello_override", only: :non_overwritten
     end
 
     class WithConditionalOverrideFlippedAndInheriting < WithConditionalOverride
-      layout nil, :only => :non_overwritten
+      layout nil, only: :non_overwritten
     end
 
     class TestBase < ActiveSupport::TestCase
@@ -441,7 +441,7 @@ module AbstractControllerTests
         assert_equal "With String Hello abstract child!", controller.response_body
       end
 
-      test "a child inherits layout from abstract controller2" do
+      test "a child inherits layout from abstract controller when layout is nil" do
         controller = AbstractWithStringChildDefaultsToInherited.new
         controller.process(:index)
         assert_equal "With String Hello abstract child!", controller.response_body
