@@ -343,7 +343,7 @@ module ActionView
     end
 
     def action_has_layout=(value)
-      ActiveSupport::Deprecation.warn("Controller#action_has_layout= is deprecated and will be removed in 4.3. Please use `layout: false`.")
+      ActiveSupport::Deprecation.warn("`#action_has_layout=` is deprecated and will be removed in 5.1. Please use `render layout: false`.")
       @_action_has_layout = value
     end
 
