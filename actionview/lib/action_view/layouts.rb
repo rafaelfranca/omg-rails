@@ -208,8 +208,6 @@ module ActionView
       self._layout_param      = nil
       self._layout_conditions = nil
       self._layout_root       = self
-
-      include LayoutMethod
     end
 
     module ClassMethods
@@ -333,14 +331,6 @@ module ActionView
       end
     end
 
-    # Creates a _layout method to be called by _default_layout .
-    module LayoutMethod # :nodoc:
-      private
-      def _layout(formats) # reader, called in #_default_layout.
-        LayoutFinder.new(action_name, lookup_context, formats, self).find
-      end
-    end
-
     # Entry point for layout finding and rendering. This is called in #render, we add
     # the <tt>layout:</tt> option here.
     def _normalize_options(options) # :nodoc:
@@ -370,7 +360,9 @@ module ActionView
 
   private
 
-    def _layout(*); end
+    def _layout(formats)
+      LayoutFinder.new(action_name, lookup_context, formats, self).find
+    end
 
     # Determine the layout for a given name, taking into account the name type.
     #
