@@ -4,6 +4,7 @@ class MiddlewareStackTest < ActiveSupport::TestCase
   class FooMiddleware; end
   class BarMiddleware; end
   class BazMiddleware; end
+  class QuxMiddleware; end
   class HiyaMiddleware; end
   class BlockMiddleware
     attr_reader :block
@@ -137,7 +138,7 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal false, @stack.include?(FooMiddleware)
   end
 
-  test "adds middleware right before the previous middleware of the deleted target" do
+  test "adds middleware right before the next middleware of the deleted target" do
     @stack.use BazMiddleware
     @stack.delete BarMiddleware
     @stack.insert_before BarMiddleware, HiyaMiddleware
@@ -156,4 +157,16 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal HiyaMiddleware, @stack[2].klass
     assert_equal false, @stack.include?(BazMiddleware)
   end
+
+  test "adds relative to the original (deleted) location, not the new location" do
+    @stack.delete BarMiddleware
+    @stack.unshift BarMiddleware
+    @stack.insert_after BarMiddleware, QuxMiddleware
+
+    # Qux comes immediately after Bar's original location, not after Bar's new location
+    assert_equal BarMiddleware, @stack.first.klass
+    assert_equal FooMiddleware, @stack[1].klass
+    assert_equal QuxMiddleware, @stack[2].klass
+  end
+
 end
