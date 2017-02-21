@@ -25,6 +25,15 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     end
   end
 
+  test "deletes all instances of the given middleware" do
+    @stack.use FooMiddleware
+    @stack.use FooMiddleware
+    assert_equal 4, @stack.size
+    assert_difference "@stack.size", -3 do
+      @stack.delete FooMiddleware
+    end
+  end
+
   test "use should push middleware as class onto the stack" do
     assert_difference "@stack.size" do
       @stack.use BazMiddleware
@@ -115,8 +124,8 @@ class MiddlewareStackTest < ActiveSupport::TestCase
   test "allow adding middleware after a middleware that was already removed" do
     @stack.delete FooMiddleware
     @stack.insert_after FooMiddleware, BazMiddleware
-    assert_equal BarMiddleware, @stack.first.klass
-    assert_equal BazMiddleware, @stack[1].klass
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal BarMiddleware, @stack[1].klass
     assert_equal false, @stack.include?(FooMiddleware)
   end
 
@@ -128,6 +137,19 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal HiyaMiddleware, @stack[1].klass
     assert_equal BazMiddleware, @stack[2].klass
     assert_equal false, @stack.include?(BarMiddleware)
+  end
+
+  test "adds middleware right after where the deleted middleware would have been" do
+    @stack.use BazMiddleware
+    @stack.delete BarMiddleware
+    @stack.insert_after FooMiddleware, QuxMiddleware
+    @stack.insert_after BarMiddleware, HiyaMiddleware
+
+    # Hiya comes after Qux because Bar would have been after both Qux and Foo
+    assert_equal FooMiddleware, @stack.first.klass
+    assert_equal QuxMiddleware, @stack[1].klass
+    assert_equal HiyaMiddleware, @stack[2].klass
+    assert_equal BazMiddleware, @stack[3].klass
   end
 
   test "allow adding middleware before a middleware that was already removed" do
@@ -146,6 +168,19 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal HiyaMiddleware, @stack[1].klass
     assert_equal BazMiddleware, @stack[2].klass
     assert_equal false, @stack.include?(BarMiddleware)
+  end
+
+  test "adds middleware right before where the deleted middleware would have been" do
+    @stack.use BazMiddleware
+    @stack.delete BarMiddleware
+    @stack.insert_before BazMiddleware, QuxMiddleware
+    @stack.insert_before BarMiddleware, HiyaMiddleware
+
+    # Hiya comes before Qux because Bar would have been before both Qux and Baz
+    assert_equal FooMiddleware, @stack.first.klass
+    assert_equal HiyaMiddleware, @stack[1].klass
+    assert_equal QuxMiddleware, @stack[2].klass
+    assert_equal BazMiddleware, @stack[3].klass
   end
 
   test "adds middleware to the end if the deleted middlewere was in the end" do
