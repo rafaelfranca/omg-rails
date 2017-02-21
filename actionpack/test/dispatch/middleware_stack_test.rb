@@ -41,23 +41,6 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal BazMiddleware, @stack.last.klass
   end
 
-  test "use should push middleware class with arguments onto the stack" do
-    assert_difference "@stack.size" do
-      @stack.use BazMiddleware, true, foo: "bar"
-    end
-    assert_equal BazMiddleware, @stack.last.klass
-    assert_equal([true, { foo: "bar" }], @stack.last.args)
-  end
-
-  test "use should push middleware class with block arguments onto the stack" do
-    proc = Proc.new {}
-    assert_difference "@stack.size" do
-      @stack.use(BlockMiddleware, &proc)
-    end
-    assert_equal BlockMiddleware, @stack.last.klass
-    assert_equal proc, @stack.last.block
-  end
-
   test "insert inserts middleware at the integer index" do
     @stack.insert(1, BazMiddleware)
     assert_equal BazMiddleware, @stack[1].klass
@@ -202,6 +185,88 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal BarMiddleware, @stack.first.klass
     assert_equal FooMiddleware, @stack[1].klass
     assert_equal QuxMiddleware, @stack[2].klass
+  end
+
+  test "use should push middleware class with arguments onto the stack" do
+    assert_difference "@stack.size" do
+      @stack.use BazMiddleware, true, foo: "bar"
+    end
+    assert_equal BazMiddleware, @stack.last.klass
+    assert_equal([true, { foo: "bar" }], @stack.last.args)
+  end
+
+  test "use should push middleware class with block arguments onto the stack" do
+    proc = Proc.new {}
+    assert_difference "@stack.size" do
+      @stack.use(BlockMiddleware, &proc)
+    end
+    assert_equal BlockMiddleware, @stack.last.klass
+    assert_equal proc, @stack.last.block
+  end
+
+  test "insert should handle arguments" do
+    @stack.insert(0, BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal([true, { foo: "bar" }], @stack.first.args)
+  end
+
+  test "insert should handle a block" do
+    proc = Proc.new {}
+    @stack.insert(0, BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.first.klass
+    assert_equal proc, @stack.first.block
+  end
+
+  test "insert_before should handle arguments" do
+    @stack.insert_before(0, BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal([true, { foo: "bar" }], @stack.first.args)
+  end
+
+  test "insert_before should handle a block" do
+    proc = Proc.new {}
+    @stack.insert_before(0, BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.first.klass
+    assert_equal proc, @stack.first.block
+  end
+
+  test "insert_after should handle arguments" do
+    @stack.insert_after(1, BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.last.klass
+    assert_equal([true, { foo: "bar" }], @stack.last.args)
+  end
+
+  test "insert_after should handle a block" do
+    proc = Proc.new {}
+    @stack.insert_after(1, BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.last.klass
+    assert_equal proc, @stack.last.block
+  end
+
+  test "swap should handle arguments" do
+    @stack.swap(FooMiddleware, BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal([true, { foo: "bar" }], @stack.first.args)
+  end
+
+  test "swap should handle a block" do
+    proc = Proc.new {}
+    @stack.swap(FooMiddleware, BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.first.klass
+    assert_equal proc, @stack.first.block
+  end
+
+  test "unshift should handle arguments" do
+    @stack.unshift(BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal([true, { foo: "bar" }], @stack.first.args)
+  end
+
+  test "unshift should handle a block" do
+    proc = Proc.new {}
+    @stack.unshift(BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.first.klass
+    assert_equal proc, @stack.first.block
   end
 
 end
