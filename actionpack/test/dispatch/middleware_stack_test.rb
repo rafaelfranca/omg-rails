@@ -4,6 +4,7 @@ class MiddlewareStackTest < ActiveSupport::TestCase
   class FooMiddleware; end
   class BarMiddleware; end
   class BazMiddleware; end
+  class QuxMiddleware; end
   class HiyaMiddleware; end
   class BlockMiddleware
     attr_reader :block
@@ -24,28 +25,20 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     end
   end
 
+  test "deletes all instances of the given middleware" do
+    @stack.use FooMiddleware
+    @stack.use FooMiddleware
+    assert_equal 4, @stack.size
+    assert_difference "@stack.size", -3 do
+      @stack.delete FooMiddleware
+    end
+  end
+
   test "use should push middleware as class onto the stack" do
     assert_difference "@stack.size" do
       @stack.use BazMiddleware
     end
     assert_equal BazMiddleware, @stack.last.klass
-  end
-
-  test "use should push middleware class with arguments onto the stack" do
-    assert_difference "@stack.size" do
-      @stack.use BazMiddleware, true, foo: "bar"
-    end
-    assert_equal BazMiddleware, @stack.last.klass
-    assert_equal([true, { foo: "bar" }], @stack.last.args)
-  end
-
-  test "use should push middleware class with block arguments onto the stack" do
-    proc = Proc.new {}
-    assert_difference "@stack.size" do
-      @stack.use(BlockMiddleware, &proc)
-    end
-    assert_equal BlockMiddleware, @stack.last.klass
-    assert_equal proc, @stack.last.block
   end
 
   test "insert inserts middleware at the integer index" do
@@ -114,8 +107,8 @@ class MiddlewareStackTest < ActiveSupport::TestCase
   test "allow adding middleware after a middleware that was already removed" do
     @stack.delete FooMiddleware
     @stack.insert_after FooMiddleware, BazMiddleware
-    assert_equal BarMiddleware, @stack.first.klass
-    assert_equal BazMiddleware, @stack[1].klass
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal BarMiddleware, @stack[1].klass
     assert_equal false, @stack.include?(FooMiddleware)
   end
 
@@ -129,6 +122,19 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal false, @stack.include?(BarMiddleware)
   end
 
+  test "adds middleware right after where the deleted middleware would have been" do
+    @stack.use BazMiddleware
+    @stack.delete BarMiddleware
+    @stack.insert_after FooMiddleware, QuxMiddleware
+    @stack.insert_after BarMiddleware, HiyaMiddleware
+
+    # Hiya comes after Qux because Bar would have been after both Qux and Foo
+    assert_equal FooMiddleware, @stack.first.klass
+    assert_equal QuxMiddleware, @stack[1].klass
+    assert_equal HiyaMiddleware, @stack[2].klass
+    assert_equal BazMiddleware, @stack[3].klass
+  end
+
   test "allow adding middleware before a middleware that was already removed" do
     @stack.delete FooMiddleware
     @stack.insert_before FooMiddleware, BazMiddleware
@@ -137,7 +143,7 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal false, @stack.include?(FooMiddleware)
   end
 
-  test "adds middleware right before the previous middleware of the deleted target" do
+  test "adds middleware right before the next middleware of the deleted target" do
     @stack.use BazMiddleware
     @stack.delete BarMiddleware
     @stack.insert_before BarMiddleware, HiyaMiddleware
@@ -145,6 +151,19 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal HiyaMiddleware, @stack[1].klass
     assert_equal BazMiddleware, @stack[2].klass
     assert_equal false, @stack.include?(BarMiddleware)
+  end
+
+  test "adds middleware right before where the deleted middleware would have been" do
+    @stack.use BazMiddleware
+    @stack.delete BarMiddleware
+    @stack.insert_before BazMiddleware, QuxMiddleware
+    @stack.insert_before BarMiddleware, HiyaMiddleware
+
+    # Hiya comes before Qux because Bar would have been before both Qux and Baz
+    assert_equal FooMiddleware, @stack.first.klass
+    assert_equal HiyaMiddleware, @stack[1].klass
+    assert_equal QuxMiddleware, @stack[2].klass
+    assert_equal BazMiddleware, @stack[3].klass
   end
 
   test "adds middleware to the end if the deleted middlewere was in the end" do
@@ -156,4 +175,98 @@ class MiddlewareStackTest < ActiveSupport::TestCase
     assert_equal HiyaMiddleware, @stack[2].klass
     assert_equal false, @stack.include?(BazMiddleware)
   end
+
+  test "adds relative to the original (deleted) location, not the new location" do
+    @stack.delete BarMiddleware
+    @stack.unshift BarMiddleware
+    @stack.insert_after BarMiddleware, QuxMiddleware
+
+    # Qux comes immediately after Bar's original location, not after Bar's new location
+    assert_equal BarMiddleware, @stack.first.klass
+    assert_equal FooMiddleware, @stack[1].klass
+    assert_equal QuxMiddleware, @stack[2].klass
+  end
+
+  test "use should push middleware class with arguments onto the stack" do
+    assert_difference "@stack.size" do
+      @stack.use BazMiddleware, true, foo: "bar"
+    end
+    assert_equal BazMiddleware, @stack.last.klass
+    assert_equal([true, { foo: "bar" }], @stack.last.args)
+  end
+
+  test "use should push middleware class with block arguments onto the stack" do
+    proc = Proc.new {}
+    assert_difference "@stack.size" do
+      @stack.use(BlockMiddleware, &proc)
+    end
+    assert_equal BlockMiddleware, @stack.last.klass
+    assert_equal proc, @stack.last.block
+  end
+
+  test "insert should handle arguments" do
+    @stack.insert(0, BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal([true, { foo: "bar" }], @stack.first.args)
+  end
+
+  test "insert should handle a block" do
+    proc = Proc.new {}
+    @stack.insert(0, BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.first.klass
+    assert_equal proc, @stack.first.block
+  end
+
+  test "insert_before should handle arguments" do
+    @stack.insert_before(0, BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal([true, { foo: "bar" }], @stack.first.args)
+  end
+
+  test "insert_before should handle a block" do
+    proc = Proc.new {}
+    @stack.insert_before(0, BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.first.klass
+    assert_equal proc, @stack.first.block
+  end
+
+  test "insert_after should handle arguments" do
+    @stack.insert_after(1, BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.last.klass
+    assert_equal([true, { foo: "bar" }], @stack.last.args)
+  end
+
+  test "insert_after should handle a block" do
+    proc = Proc.new {}
+    @stack.insert_after(1, BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.last.klass
+    assert_equal proc, @stack.last.block
+  end
+
+  test "swap should handle arguments" do
+    @stack.swap(FooMiddleware, BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal([true, { foo: "bar" }], @stack.first.args)
+  end
+
+  test "swap should handle a block" do
+    proc = Proc.new {}
+    @stack.swap(FooMiddleware, BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.first.klass
+    assert_equal proc, @stack.first.block
+  end
+
+  test "unshift should handle arguments" do
+    @stack.unshift(BazMiddleware, true, { foo: "bar" })
+    assert_equal BazMiddleware, @stack.first.klass
+    assert_equal([true, { foo: "bar" }], @stack.first.args)
+  end
+
+  test "unshift should handle a block" do
+    proc = Proc.new {}
+    @stack.unshift(BlockMiddleware, &proc)
+    assert_equal BlockMiddleware, @stack.first.klass
+    assert_equal proc, @stack.first.block
+  end
+
 end

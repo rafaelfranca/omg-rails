@@ -14,6 +14,10 @@ module ActionDispatch
 
       def name; klass.name; end
 
+      def deleted?
+        false
+      end
+
       def ==(middleware)
         case middleware
         when Middleware
@@ -36,30 +40,40 @@ module ActionDispatch
       end
     end
 
+    class DeletedMiddleware
+      attr_reader :klass
+      def initialize(klass)
+        @klass = klass
+      end
+
+      def deleted?
+        true
+      end
+    end
+
     include Enumerable
 
     attr_accessor :middlewares
 
     def initialize(*args)
       @middlewares = []
-      @deleted_middlewares = {}
       yield(self) if block_given?
     end
 
     def each
-      @middlewares.each { |x| yield x }
+      undeleted_middlewares.each { |x| yield x }
     end
 
     def size
-      middlewares.size
+      undeleted_middlewares.size
     end
 
     def last
-      middlewares.last
+      undeleted_middlewares.last
     end
 
     def [](i)
-      middlewares[i]
+      undeleted_middlewares[i]
     end
 
     def unshift(klass, *args, &block)
@@ -70,28 +84,28 @@ module ActionDispatch
       self.middlewares = other.middlewares.dup
     end
 
-    def insert(index, klass, *args, &block)
-      index = assert_index(index, :before)
-      middlewares.insert(index, build_middleware(klass, args, block))
+    def insert(target, klass, *args, &block)
+      actual_index = assert_index(target, :before)
+      direct_insert(actual_index, klass, args, block)
     end
 
     alias_method :insert_before, :insert
 
-    def insert_after(index, *args, &block)
-      index = assert_index(index, :after)
-      insert(index + 1, *args, &block)
+    def insert_after(target, klass, *args, &block)
+      actual_index = assert_index(target, :after)
+      direct_insert(actual_index + 1, klass, args, block)
     end
 
-    def swap(target, *args, &block)
-      index = assert_index(target, :before)
-      insert(index, *args, &block)
-      middlewares.delete_at(index + 1)
+    def swap(target, klass, *args, &block)
+      actual_index = assert_index(target, :before)
+      direct_insert(actual_index, klass, args, block)
+      middlewares.delete_at(actual_index + 1)
     end
 
     def delete(target)
-      index = middleware_index(target)
-      track_deleted_middleware_at(index)
-      middlewares.delete_at(index)
+      @middlewares.map! do |m, idx|
+        m.klass == target ? DeletedMiddleware.new(m.klass) : m
+      end
     end
 
     def use(klass, *args, &block)
@@ -99,52 +113,39 @@ module ActionDispatch
     end
 
     def build(app = Proc.new)
-      middlewares.freeze.reverse.inject(app) { |a, e| e.build(a) }
+      undeleted_middlewares.freeze.reverse.inject(app) { |a, e| e.build(a) }
     end
 
     private
 
-      def assert_index(index, where)
-        if index.is_a?(Integer)
-          i = index
+      def undeleted_middlewares
+        @middlewares.select { |m| !m.deleted? }
+      end
+
+      def direct_insert(actual_index, klass, args, block)
+        @middlewares.insert(actual_index, build_middleware(klass, args, block))
+      end
+
+      def assert_index(target, where)
+        if target.is_a?(Integer)
+          # Translate to correct index
+          undeleted_indices = @middlewares.each_index.select { |idx| !@middlewares[idx].deleted? }
+          i = undeleted_indices[target]
         else
-          if target_deleted?(index)
-            target = next_target(index, where)
-
-            return -1 unless target
-          else
-            target = index
-          end
-
-          i = middleware_index(target)
+          i = deleted_middleware_index(target) || middleware_index(target)
         end
 
-        raise "No such middleware to insert #{where}: #{index.inspect}" unless i
+        raise "No such middleware to insert #{where}: #{target.inspect}" unless i
 
         i
       end
 
-      def target_deleted?(target)
-        @deleted_middlewares.key?(target)
-      end
-
-      def next_target(target, where)
-        position = where == :after ? :previous : :next
-
-        @deleted_middlewares[target][position]
+      def deleted_middleware_index(klass)
+        middlewares.index { |m| m.deleted? && m.klass == klass }
       end
 
       def middleware_index(klass)
-        middlewares.index { |m| m.klass == klass }
-      end
-
-      def track_deleted_middleware_at(index)
-        previous_middleware = middlewares[index - 1].klass
-
-        next_middleware = middlewares[index + 1]
-        next_middleware = next_middleware && next_middleware.klass
-
-        @deleted_middlewares[middlewares[index].klass] = { previous: previous_middleware, next: next_middleware }
+        middlewares.index { |m| !m.deleted? && m.klass == klass }
       end
 
       def build_middleware(klass, args, block)
