@@ -24,12 +24,6 @@ module ActionController
     included do
       class_attribute :etag_with_template_digest
       self.etag_with_template_digest = true
-
-      ActiveSupport.on_load :action_controller, yield: true do
-        etag do |options|
-          determine_template_etag(options) if etag_with_template_digest
-        end
-      end
     end
 
     private
