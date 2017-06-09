@@ -40,7 +40,10 @@ module ActiveRecord
     end
 
     autoload_at "active_record/connection_adapters/abstract/transaction" do
-      autoload :TransactionManager
+      eager_autoload do
+        autoload :TransactionManager
+      end
+
       autoload :NullTransaction
       autoload :RealTransaction
       autoload :SavepointTransaction
