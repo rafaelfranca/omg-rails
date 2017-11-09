@@ -13,6 +13,7 @@ After reading this guide, you will know:
 * How to create variations of an image.
 * How to generate a preview for files other than images.
 * How to upload files directly to a service.
+* How to generate a preview for files other than images
 * How to implement a download link.
 * How to add support for additional cloud services.
 
