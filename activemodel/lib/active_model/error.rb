@@ -104,6 +104,12 @@ module ActiveModel
       true
     end
 
+    def strict_match?(attribute, type, **options)
+      return false unless match?(attribute, type, **options)
+
+      full_message == Error.new(@base, attribute, type, **options).full_message
+    end
+
     private
 
       def humanized_attribute
