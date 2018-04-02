@@ -76,6 +76,7 @@ module ActiveModel
     self.i18n_full_message = false
 
     attr_reader :errors
+    alias :objects :errors
 
     # Pass in the instance of the object that is using the errors object.
     #

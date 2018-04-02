@@ -159,14 +159,14 @@ class ErrorsTest < ActiveModel::TestCase
 
     assert_equal :name, error.attribute
     assert_equal :blank, error.type
-    assert_equal error, person.errors.first
+    assert_equal error, person.errors.objects.first
   end
 
   test "add, with type as symbol" do
     person = Person.new
     person.errors.add(:name, :blank)
 
-    assert_equal :blank, person.errors.first.type
+    assert_equal :blank, person.errors.objects.first.type
     assert_equal ["can't be blank"], person.errors[:name]
   end
 
@@ -176,7 +176,7 @@ class ErrorsTest < ActiveModel::TestCase
     person = Person.new
     person.errors.add(:name, msg)
 
-    assert_equal :invalid, person.errors.first.type
+    assert_equal :invalid, person.errors.objects.first.type
     assert_equal [msg], person.errors[:name]
   end
 
@@ -184,7 +184,7 @@ class ErrorsTest < ActiveModel::TestCase
     person = Person.new
     person.errors.add(:name)
 
-    assert_equal :invalid, person.errors.first.type
+    assert_equal :invalid, person.errors.objects.first.type
     assert_equal ["is invalid"], person.errors[:name]
   end
 
@@ -195,7 +195,7 @@ class ErrorsTest < ActiveModel::TestCase
     person = Person.new
     person.errors.add(:name, type)
 
-    assert_equal :invalid, person.errors.first.type
+    assert_equal :invalid, person.errors.objects.first.type
     assert_equal [msg], person.errors[:name]
   end
 
@@ -205,7 +205,7 @@ class ErrorsTest < ActiveModel::TestCase
     person = Person.new
     person.errors.add(:name, type)
 
-    assert_equal :blank, person.errors.first.type
+    assert_equal :blank, person.errors.objects.first.type
     assert_equal ["can't be blank"], person.errors[:name]
   end
 
@@ -216,7 +216,7 @@ class ErrorsTest < ActiveModel::TestCase
     person = Person.new
     person.errors.add(:name, :blank, message: type)
 
-    assert_equal :blank, person.errors.first.type
+    assert_equal :blank, person.errors.objects.first.type
     assert_equal [msg], person.errors[:name]
   end
 
@@ -227,7 +227,7 @@ class ErrorsTest < ActiveModel::TestCase
     person = Person.new
     person.errors.add(:name, message: type)
 
-    assert_equal :invalid, person.errors.first.type
+    assert_equal :invalid, person.errors.objects.first.type
     assert_equal [msg], person.errors[:name]
   end
 
