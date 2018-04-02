@@ -45,7 +45,19 @@ module ActiveModel
     # * <tt>errors.attributes.title.blank</tt>
     # * <tt>errors.messages.blank</tt>
     def message
-      options = @options.dup
+      type = @type
+      if msg = @options[:message]
+        if msg.is_a?(Symbol)
+          # TODO: Having options[:message] to act as an alternative i18n lookup key seems to be wrong.
+          # We should have a separate new key for this, for example `:lookup_key`,
+          # this way lookup_key can also be a Proc and generated dynamically.
+          type = msg
+          msg = nil
+        end
+        options = @options.except(:message)
+      else
+        options = @options
+      end
 
       if @base.class.respond_to?(:i18n_scope)
         i18n_scope = @base.class.i18n_scope.to_s
@@ -62,13 +74,15 @@ module ActiveModel
       defaults << :"errors.messages.#{type}"
 
       key = defaults.shift
-      value = (@attribute != :base ? @base.send(:read_attribute_for_validation, @attribute) : nil)
-      if options[:message]
-        defaults = options.delete(:message)
+      begin
+        value = (@attribute != :base ? @base.send(:read_attribute_for_validation, @attribute) : nil)
+      rescue NoMethodError
+        ActiveSupport::Deprecation.warn("\"#{msg}\" error was added to `#{@attribute}` attribute, but that attribute does not exist. This behavior will be deprecated and raise exception in Rails 6.1")
+        return msg
       end
 
       i18n_options = {
-        default: defaults,
+        default: msg || defaults,
         model: @base.model_name.human,
         attribute: humanized_attribute,
         value: value,

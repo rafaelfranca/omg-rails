@@ -34,16 +34,23 @@ class I18nValidationTest < ActiveModel::TestCase
   end
 
   def test_errors_full_messages_translates_human_attribute_name_for_model_attributes
-    @person.errors.add(:name, "not found")
-    assert_called_with(Person, :human_attribute_name, ["name", default: "Name"], returns: "Person's name") do
+    @person.errors.add(:title, "not found")
+    assert_called_with(Person, :human_attribute_name, ["title", default: "Title"], returns: "Person's name") do
       assert_equal ["Person's name not found"], @person.errors.full_messages
     end
   end
 
   def test_errors_full_messages_uses_format
     I18n.backend.store_translations("en", errors: { format: "Field %{attribute} %{message}" })
-    @person.errors.add("name", "empty")
-    assert_equal ["Field Name empty"], @person.errors.full_messages
+    @person.errors.add("title", "empty")
+    assert_equal ["Field Title empty"], @person.errors.full_messages
+  end
+
+  def test_errors_on_undefined_attribute_deprecation
+    @person.errors.add("horse_power", "too low")
+    assert_deprecated do
+      assert_equal ["Horse power too low"], @person.errors.full_messages
+    end
   end
 
   def test_errors_full_messages_doesnt_use_attribute_format_without_config
