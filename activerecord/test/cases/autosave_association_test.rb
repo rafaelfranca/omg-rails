@@ -78,7 +78,7 @@ class TestAutosaveAssociationsInGeneral < ActiveRecord::TestCase
     ship.prisoners.build
 
     assert_not_predicate ship, :valid?
-    assert_equal 1, ship.errors[:name].length
+    assert_equal 1, ship.errors.where(:name).size
   end
 
   private
