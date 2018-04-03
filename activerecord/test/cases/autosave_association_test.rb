@@ -462,7 +462,7 @@ class TestDefaultAutosaveAssociationOnAHasManyAssociationWithAcceptsNestedAttrib
     assert_predicate tuning_peg_valid, :valid?
     assert_not_predicate guitar, :valid?
     assert_equal [{ error: :not_a_number, value: nil }], guitar.errors.details[:"tuning_pegs[1].pitch"]
-    assert_equal [], guitar.errors.details[:"tuning_pegs.pitch"]
+    assert_not guitar.errors.details.key?(:"tuning_pegs.pitch")
   end
 
   def test_errors_details_should_be_indexed_when_global_flag_is_set
@@ -479,7 +479,7 @@ class TestDefaultAutosaveAssociationOnAHasManyAssociationWithAcceptsNestedAttrib
     assert_predicate valid_electron, :valid?
     assert_not_predicate molecule, :valid?
     assert_equal [{ error: :blank }], molecule.errors.details[:"electrons[1].name"]
-    assert_equal [], molecule.errors.details[:"electrons.name"]
+    assert_not molecule.errors.details.key?(:"electrons.name")
   ensure
     ActiveRecord::Base.index_nested_attribute_errors = old_attribute_config
   end
