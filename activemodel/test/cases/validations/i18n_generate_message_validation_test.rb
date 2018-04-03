@@ -8,6 +8,12 @@ class I18nGenerateMessageValidationTest < ActiveModel::TestCase
   def setup
     Person.clear_validators!
     @person = Person.new
+
+    ActiveSupport::Deprecation.silenced = true
+  end
+
+  def teardown
+    ActiveSupport::Deprecation.silenced = false
   end
 
   # validates_inclusion_of: generate_message(attr_name, :inclusion, message: custom_message, value: value)
