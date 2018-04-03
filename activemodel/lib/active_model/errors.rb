@@ -65,6 +65,8 @@ module ActiveModel
 
     extend Forwardable
     def_delegators :@errors, :size, :clear, :blank?, :empty?
+    # TODO: forward all enumerable methods after `each` deprecation is removed.
+    def_delegators :@errors, :count
 
     CALLBACKS_OPTIONS = [:if, :unless, :on, :allow_nil, :allow_blank, :strict]
     MESSAGE_OPTIONS = [:message]
@@ -203,7 +205,8 @@ module ActiveModel
     #   person.errors[:name]  # => ["cannot be nil"]
     #   person.errors['name'] # => ["cannot be nil"]
     def [](attribute)
-      where(attribute.to_sym).map { |error| error.message }
+      deprecation_rename_warning("[]", "message_for")
+      messages_for(attribute)
     end
 
     # Iterates through each error key, value pair in the error messages hash.
@@ -443,6 +446,10 @@ module ActiveModel
       where(attribute).map(&:full_message).freeze
     end
 
+    def messages_for(attribute)
+      where(attribute).map(&:message).freeze
+    end
+
     # Returns a full message for a given attribute.
     #
     #   person.errors.full_message(:name, 'is invalid') # => "Name is invalid"
@@ -576,6 +583,10 @@ module ActiveModel
 
       def deprecation_removal_warning(method_name)
         ActiveSupport::Deprecation.warn("ActiveModel::Errors##{method_name} is deprecated and will be removed in Rails 6.1")
+      end
+
+      def deprecation_rename_warning(old_method_name, new_method_name)
+        ActiveSupport::Deprecation.warn("ActiveModel::Errors##{old_method_name} is deprecated. Please call ##{new_method_name} instead.")
       end
   end
 
