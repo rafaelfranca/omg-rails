@@ -742,7 +742,7 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
 
   def test_push_with_invalid_join_record
     repair_validations(Contract) do
-      Contract.validate { |r| r.errors[:base] << "Invalid Contract" }
+      Contract.validate { |r| r.errors.add :base, "Invalid Contract" }
 
       firm = companies(:first_firm)
       lifo = Developer.new(name: "lifo")
@@ -1159,7 +1159,7 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
 
   def test_create_should_not_raise_exception_when_join_record_has_errors
     repair_validations(Categorization) do
-      Categorization.validate { |r| r.errors[:base] << "Invalid Categorization" }
+      Categorization.validate { |r| r.errors.add :base, "Invalid Categorization" }
       Category.create(name: "Fishing", authors: [Author.first])
     end
   end
@@ -1171,7 +1171,7 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
 
   def test_create_bang_should_raise_exception_when_join_record_has_errors
     repair_validations(Categorization) do
-      Categorization.validate { |r| r.errors[:base] << "Invalid Categorization" }
+      Categorization.validate { |r| r.errors.add :base, "Invalid Categorization" }
       assert_raises(ActiveRecord::RecordInvalid) do
         Category.create!(name: "Fishing", authors: [Author.first])
       end
@@ -1180,7 +1180,7 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
 
   def test_save_bang_should_raise_exception_when_join_record_has_errors
     repair_validations(Categorization) do
-      Categorization.validate { |r| r.errors[:base] << "Invalid Categorization" }
+      Categorization.validate { |r| r.errors.add :base, "Invalid Categorization" }
       c = Category.new(name: "Fishing", authors: [Author.first])
       assert_raises(ActiveRecord::RecordInvalid) do
         c.save!
@@ -1190,7 +1190,7 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
 
   def test_save_returns_falsy_when_join_record_has_errors
     repair_validations(Categorization) do
-      Categorization.validate { |r| r.errors[:base] << "Invalid Categorization" }
+      Categorization.validate { |r| r.errors.add :base, "Invalid Categorization" }
       c = Category.new(name: "Fishing", authors: [Author.first])
       assert_not c.save
     end
