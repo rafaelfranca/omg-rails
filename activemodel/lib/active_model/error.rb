@@ -92,13 +92,54 @@ module ActiveModel
       I18n.translate(key, i18n_options)
     end
 
+    # Returns a full message for a given attribute.
+    #
+    #   person.errors.first.full_message # => "Name is invalid"
+    #
+    #   The `"%{attribute} %{message}"` error format can be overridden with either
+    #
+    # * <tt>activemodel.errors.models.person/contacts/addresses.attributes.street.format</tt>
+    # * <tt>activemodel.errors.models.person/contacts/addresses.format</tt>
+    # * <tt>activemodel.errors.models.person.attributes.name.format</tt>
+    # * <tt>activemodel.errors.models.person.format</tt>
+    # * <tt>errors.format</tt>
     def full_message
       message = self.message
 
       return message if @attribute == :base
 
-      I18n.t(:"errors.format",
-        default: "%{attribute} %{message}",
+      if ActiveModel::Errors.i18n_full_message && @base.class.respond_to?(:i18n_scope)
+        parts = attribute.to_s.split(".")
+        attribute_name = parts.pop
+        namespace = parts.join("/") unless parts.empty?
+        attributes_scope = "#{@base.class.i18n_scope}.errors.models"
+
+        if namespace
+          defaults = @base.class.lookup_ancestors.map do |klass|
+            [
+              :"#{attributes_scope}.#{klass.model_name.i18n_key}/#{namespace}.attributes.#{attribute_name}.format",
+              :"#{attributes_scope}.#{klass.model_name.i18n_key}/#{namespace}.format",
+            ]
+          end
+        else
+          defaults = @base.class.lookup_ancestors.map do |klass|
+            [
+              :"#{attributes_scope}.#{klass.model_name.i18n_key}.attributes.#{attribute_name}.format",
+              :"#{attributes_scope}.#{klass.model_name.i18n_key}.format",
+            ]
+          end
+        end
+
+        defaults.flatten!
+      else
+        defaults = []
+      end
+
+      defaults << :"errors.format"
+      defaults << "%{attribute} %{message}"
+
+      I18n.t(defaults.shift,
+        default: defaults,
         attribute: humanized_attribute,
         message: message)
     end
