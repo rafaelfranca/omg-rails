@@ -15,7 +15,7 @@ module ActiveStorage
       @root = root
     end
 
-    def upload(key, io, checksum: nil)
+    def upload(key, io, checksum: nil, **)
       instrument :upload, key: key, checksum: checksum do
         IO.copy_stream(io, make_path_for(key))
         ensure_integrity_of(key, checksum) if checksum

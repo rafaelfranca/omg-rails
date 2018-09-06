@@ -11,15 +11,22 @@ module ActiveStorage
       @config = config
     end
 
-    def upload(key, io, checksum: nil)
+    def upload(key, io, checksum: nil, content_type: nil, disposition: nil, filename: nil)
       instrument :upload, key: key, checksum: checksum do
         begin
-          # The official GCS client library doesn't allow us to create a file with no Content-Type metadata.
-          # We need the file we create to have no Content-Type so we can control it via the response-content-type
-          # param in signed URLs. Workaround: let the GCS client create the file with an inferred
-          # Content-Type (usually "application/octet-stream") then clear it.
+          # GCS's signed URLs don't include params such as response-content-type response-content_disposition
+          # in the signature, which means an attacker can modify them and bypass our effort to force these to
+          # binary and attachment when the file's content type requires it. The only way to force them is to
+          # store them as object's metadata.
+          # Conversely, for any other type of file, we need the file we create to have no Content-Type so we can
+          # control it via the response-content-type param in signed URLs. The official GCS client library doesn't
+          # allow us to create a file with no Content-Type metadata. Workaround: let the GCS client create the file
+          # with an inferred Content-Type (usually "application/octet-stream") then clear it.
           bucket.create_file(io, key, md5: checksum).update do |file|
-            file.content_type = nil
+            file.content_type = content_type
+            if disposition && filename
+              file.content_disposition = content_disposition_with(type: disposition, filename: filename)
+            end
           end
         rescue Google::Cloud::InvalidArgumentError
           raise ActiveStorage::IntegrityError

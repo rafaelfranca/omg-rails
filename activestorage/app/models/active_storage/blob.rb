@@ -166,7 +166,7 @@ class ActiveStorage::Blob < ActiveRecord::Base
   end
 
   def upload_without_unfurling(io) #:nodoc:
-    service.upload key, io, checksum: checksum
+    service.upload key, io, checksum: checksum, **service_metadata
   end
 
   # Downloads the file associated with this blob. If no block is given, the entire file is read into memory and returned.
@@ -236,11 +236,11 @@ class ActiveStorage::Blob < ActiveRecord::Base
     end
 
     def content_type_for_service_url
-      if forcibly_serve_as_binary?
-        ActiveStorage.binary_content_type
-      else
-        content_type
-      end
+      forcibly_serve_as_binary? ? ActiveStorage.binary_content_type : content_type
+    end
+
+    def service_metadata
+      forcibly_serve_as_binary? ? { content_type: ActiveStorage.binary_content_type, disposition: :attachment, filename: filename } : {}
     end
 
     ActiveSupport.run_load_hooks(:active_storage_blob, self)

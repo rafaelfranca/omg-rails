@@ -60,7 +60,7 @@ module ActiveStorage
 
     # Upload the +io+ to the +key+ specified. If a +checksum+ is provided, the service will
     # ensure a match when the upload has completed or raise an ActiveStorage::IntegrityError.
-    def upload(key, io, checksum: nil)
+    def upload(key, io, checksum: nil, **options)
       raise NotImplementedError
     end
 
