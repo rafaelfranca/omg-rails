@@ -121,12 +121,12 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
     end
   end
 
-  test "urls force attachment as content disposition for content types served as binary" do
+  test "urls force content_type to binary and attachment as content disposition for content types served as binary" do
     blob = create_blob(content_type: "text/html")
 
     freeze_time do
-      assert_equal expected_url_for(blob, disposition: :attachment), blob.service_url
-      assert_equal expected_url_for(blob, disposition: :attachment), blob.service_url(disposition: :inline)
+      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/octet-stream"), blob.service_url
+      assert_equal expected_url_for(blob, disposition: :attachment, content_type: "application/octet-stream"), blob.service_url(disposition: :inline)
     end
   end
 
@@ -183,9 +183,10 @@ class ActiveStorage::BlobTest < ActiveSupport::TestCase
   end
 
   private
-    def expected_url_for(blob, disposition: :inline, filename: nil)
+    def expected_url_for(blob, disposition: :inline, filename: nil, content_type: nil)
       filename ||= blob.filename
-      query_string = { content_type: blob.content_type, disposition: "#{disposition}; #{filename.parameters}" }.to_param
+      content_type ||= blob.content_type
+      query_string = { content_type: content_type, disposition: "#{disposition}; #{filename.parameters}" }.to_param
       "https://example.com/rails/active_storage/disk/#{ActiveStorage.verifier.generate(blob.key, expires_in: 5.minutes, purpose: :blob_key)}/#{filename}?#{query_string}"
     end
 end

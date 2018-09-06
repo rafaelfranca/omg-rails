@@ -126,7 +126,7 @@ class ActiveStorage::Blob < ActiveRecord::Base
   def service_url(expires_in: ActiveStorage.service_urls_expire_in, disposition: :inline, filename: nil, **options)
     filename = ActiveStorage::Filename.wrap(filename || self.filename)
 
-    service.url key, expires_in: expires_in, filename: filename, content_type: content_type,
+    service.url key, expires_in: expires_in, filename: filename, content_type: content_type_for_service_url,
       disposition: forcibly_serve_as_binary? ? :attachment : disposition, **options
   end
 
@@ -233,6 +233,14 @@ class ActiveStorage::Blob < ActiveRecord::Base
 
     def forcibly_serve_as_binary?
       ActiveStorage.content_types_to_serve_as_binary.include?(content_type)
+    end
+
+    def content_type_for_service_url
+      if forcibly_serve_as_binary?
+        ActiveStorage.binary_content_type
+      else
+        content_type
+      end
     end
 
     ActiveSupport.run_load_hooks(:active_storage_blob, self)

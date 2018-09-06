@@ -39,6 +39,7 @@ module ActiveStorage
       text/xml
       application/xml
       application/xhtml+xml
+      text/cache-manifest
     )
 
     config.eager_load_namespaces << ActiveStorage
@@ -54,6 +55,7 @@ module ActiveStorage
 
         ActiveStorage.variable_content_types = app.config.active_storage.variable_content_types || []
         ActiveStorage.content_types_to_serve_as_binary = app.config.active_storage.content_types_to_serve_as_binary || []
+        ActiveStorage.binary_content_type = app.config.active_storage.binary_content_type || "application/octet-stream"
         ActiveStorage.service_urls_expire_in = app.config.active_storage.service_urls_expire_in || 5.minutes
       end
     end
