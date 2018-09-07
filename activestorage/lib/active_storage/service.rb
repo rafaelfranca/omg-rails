@@ -64,6 +64,12 @@ module ActiveStorage
       raise NotImplementedError
     end
 
+    # Update metadata for the file identified by +key+ in the service.
+    # Override in subclasses only if the service needs to store specific
+    # metadata that has to be updated upon identification.
+    def update_metadata(key, **metadata)
+    end
+
     # Return the content of the file at the +key+.
     def download(key)
       raise NotImplementedError

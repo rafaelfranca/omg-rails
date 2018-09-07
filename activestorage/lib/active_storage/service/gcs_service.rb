@@ -34,6 +34,15 @@ module ActiveStorage
       end
     end
 
+    def update_metadata(key, content_type:, disposition:, filename:)
+      instrument :update_metadata, key: key, content_type: content_type, disposition: disposition do
+        file_for(key).update do |file|
+          file.content_type = content_type
+          file.content_disposition = content_disposition_with(type: disposition, filename: filename)
+        end
+      end
+    end
+
     def download(key, &block)
       if block_given?
         instrument :streaming_download, key: key do
