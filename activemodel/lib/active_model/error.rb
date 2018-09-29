@@ -109,7 +109,7 @@ module ActiveModel
       return message if @attribute == :base
 
       if ActiveModel::Errors.i18n_full_message && @base.class.respond_to?(:i18n_scope)
-        parts = attribute.to_s.split(".")
+        parts = attribute_without_index.split(".")
         attribute_name = parts.pop
         namespace = parts.join("/") unless parts.empty?
         attributes_scope = "#{@base.class.i18n_scope}.errors.models"
@@ -185,8 +185,13 @@ module ActiveModel
       def humanized_attribute
         return @_humanized_attribute if defined? @_humanized_attribute
 
-        default = @attribute.to_s.tr(".", "_").humanize
-        @_humanized_attribute = @base.class.human_attribute_name(@attribute, default: default)
+        default = attribute_without_index.tr(".", "_").humanize
+
+        @_humanized_attribute = @base.class.human_attribute_name(attribute, default: default)
+      end
+
+      def attribute_without_index
+        @_attribute_without_index ||= attribute.to_s.remove(/\[\d\]/)
       end
   end
 end

@@ -35,7 +35,7 @@ class I18nValidationTest < ActiveModel::TestCase
 
   def test_errors_full_messages_translates_human_attribute_name_for_model_attributes
     @person.errors.add(:title, "not found")
-    assert_called_with(Person, :human_attribute_name, ["title", default: "Title"], returns: "Person's name") do
+    assert_called_with(Person, :human_attribute_name, [:title, default: "Title"], returns: "Person's name") do
       assert_equal ["Person's name not found"], @person.errors.full_messages
     end
   end
