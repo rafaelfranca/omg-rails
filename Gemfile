@@ -105,7 +105,7 @@ group :test do
     gem "stackprof"
     gem "byebug"
     # FIXME: Remove this when thor 0.21 is release
-    gem "thor", git: "https://github.com/erikhuda/thor.git", ref: "006832ea32480618791f89bb7d9e67b22fc814b9"
+    gem "thor", git: "https://github.com/erikhuda/thor.git", branch: 'master'
   end
 
   gem "benchmark-ips"
