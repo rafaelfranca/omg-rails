@@ -53,6 +53,16 @@ module ActiveRecord
         @scope.where_clause += where_clause.invert
         @scope
       end
+
+      def missing(*args)
+        args.each do |arg|
+          opts = { arg => { id: nil } }
+          @scope.left_joins(arg)
+          @scope.references!(PredicateBuilder.references(opts))
+          @scope.where_clause += @scope.where(opts)
+        end
+        @scope
+      end
     end
 
     FROZEN_EMPTY_ARRAY = [].freeze
