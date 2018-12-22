@@ -571,9 +571,9 @@ class ErrorsTest < ActiveModel::TestCase
     person.errors.add(:gender, "cannot be nil")
     person.errors.add(:city, "cannot be nil")
 
-    person.errors.slice!(:age, "gender")
+    assert_deprecated { person.errors.slice!(:age, "gender") }
 
-    assert_equal [:age, :gender], person.errors.keys
+    assert_equal [:age, :gender], assert_deprecated { person.errors.keys }
   end
 
   test "slice! returns the deleted errors" do
@@ -583,7 +583,7 @@ class ErrorsTest < ActiveModel::TestCase
     person.errors.add(:gender, "cannot be nil")
     person.errors.add(:city, "cannot be nil")
 
-    removed_errors = person.errors.slice!(:age, "gender")
+    removed_errors = assert_deprecated { person.errors.slice!(:age, "gender") }
 
     assert_equal({ name: ["cannot be nil"], city: ["cannot be nil"] }, removed_errors)
   end
