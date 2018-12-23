@@ -210,8 +210,6 @@ module ActiveModel
     #   person.errors[:name]  # => ["cannot be nil"]
     #   person.errors['name'] # => ["cannot be nil"]
     def [](attribute)
-      ActiveSupport::Deprecation.warn("ActiveModel::Errors#[] is deprecated and will change behavior. Please change to `messages[attribute]` or `messages_for(attribute)` instead.")
-
       messages[attribute.to_sym]
     end
 
