@@ -34,7 +34,7 @@ class ErrorsTest < ActiveModel::TestCase
     errors = ActiveModel::Errors.new(Person.new)
     errors.add(:name)
     errors.delete("name")
-    assert_empty assert_deprecated { errors[:name] }
+    assert_empty errors[:name]
   end
 
   def test_include?
@@ -88,7 +88,7 @@ class ErrorsTest < ActiveModel::TestCase
     errors = ActiveModel::Errors.new(Person.new)
     errors.add(:name, "omg")
 
-    assert_equal ["omg"], assert_deprecated { errors["name"] }
+    assert_equal ["omg"], errors["name"]
   end
 
   test "values returns an array of messages" do
@@ -133,7 +133,7 @@ class ErrorsTest < ActiveModel::TestCase
 
   test "detecting whether there are errors with empty?, blank?, include?" do
     person = Person.new
-    assert_deprecated { person.errors[:foo] }
+    person.errors[:foo]
     assert_empty person.errors
     assert_predicate person.errors, :blank?
     assert_not_includes person.errors, :foo
@@ -150,33 +150,33 @@ class ErrorsTest < ActiveModel::TestCase
     person = Person.new
     person.validate!
     assert_equal ["name cannot be nil"], person.errors.full_messages
-    assert_equal ["cannot be nil"], assert_deprecated { person.errors[:name] }
+    assert_equal ["cannot be nil"], person.errors[:name]
   end
 
   test "add an error message on a specific attribute (deprecated)" do
     person = Person.new
     person.errors.add(:name, "cannot be blank")
-    assert_equal ["cannot be blank"], assert_deprecated { person.errors[:name] }
+    assert_equal ["cannot be blank"], person.errors[:name]
   end
 
   test "add an error message on a specific attribute with a defined type (deprecated" do
     person = Person.new
     person.errors.add(:name, :blank, message: "cannot be blank")
-    assert_equal ["cannot be blank"], assert_deprecated { person.errors[:name] }
+    assert_equal ["cannot be blank"], person.errors[:name]
   end
 
   test "add an error with a symbol (deprecated" do
     person = Person.new
     person.errors.add(:name, :blank)
     message = assert_deprecated { person.errors.generate_message(:name, :blank) }
-    assert_equal [message], assert_deprecated { person.errors[:name] }
+    assert_equal [message], person.errors[:name]
   end
 
   test "add an error with a proc (deprecated)" do
     person = Person.new
     message = Proc.new { "cannot be blank" }
     person.errors.add(:name, message)
-    assert_equal ["cannot be blank"], assert_deprecated { person.errors[:name] }
+    assert_equal ["cannot be blank"], person.errors[:name]
   end
 
   test "add creates an error object and returns it" do
@@ -193,7 +193,7 @@ class ErrorsTest < ActiveModel::TestCase
     person.errors.add(:name, :blank)
 
     assert_equal :blank, person.errors.objects.first.type
-    assert_equal ["can't be blank"], assert_deprecated { person.errors[:name] }
+    assert_equal ["can't be blank"], person.errors[:name]
   end
 
   test "add, with type as String" do
@@ -203,7 +203,7 @@ class ErrorsTest < ActiveModel::TestCase
     person.errors.add(:name, msg)
 
     assert_equal :invalid, person.errors.objects.first.type
-    assert_equal [msg], assert_deprecated { person.errors[:name] }
+    assert_equal [msg], person.errors[:name]
   end
 
   test "add, with type as nil" do
@@ -211,7 +211,7 @@ class ErrorsTest < ActiveModel::TestCase
     person.errors.add(:name)
 
     assert_equal :invalid, person.errors.objects.first.type
-    assert_equal ["is invalid"], assert_deprecated { person.errors[:name] }
+    assert_equal ["is invalid"], person.errors[:name]
   end
 
   test "add, with type as Proc, which evaluates to String" do
@@ -222,7 +222,7 @@ class ErrorsTest < ActiveModel::TestCase
     person.errors.add(:name, type)
 
     assert_equal :invalid, person.errors.objects.first.type
-    assert_equal [msg], assert_deprecated { person.errors[:name] }
+    assert_equal [msg], person.errors[:name]
   end
 
   test "add, type being Proc, which evaluates to Symbol" do
@@ -232,7 +232,7 @@ class ErrorsTest < ActiveModel::TestCase
     person.errors.add(:name, type)
 
     assert_equal :blank, person.errors.objects.first.type
-    assert_equal ["can't be blank"], assert_deprecated { person.errors[:name] }
+    assert_equal ["can't be blank"], person.errors[:name]
   end
 
   test "initialize options[:message] as Proc, which evaluates to String" do
@@ -243,7 +243,7 @@ class ErrorsTest < ActiveModel::TestCase
     person.errors.add(:name, :blank, message: type)
 
     assert_equal :blank, person.errors.objects.first.type
-    assert_equal [msg], assert_deprecated { person.errors[:name] }
+    assert_equal [msg], person.errors[:name]
   end
 
   test "add, with options[:message] as Proc, which evaluates to String, where type is nil" do
@@ -254,7 +254,7 @@ class ErrorsTest < ActiveModel::TestCase
     person.errors.add(:name, message: type)
 
     assert_equal :invalid, person.errors.objects.first.type
-    assert_equal [msg], assert_deprecated { person.errors[:name] }
+    assert_equal [msg], person.errors[:name]
   end
 
   test "added? detects indifferent if a specific error was added to the object" do
