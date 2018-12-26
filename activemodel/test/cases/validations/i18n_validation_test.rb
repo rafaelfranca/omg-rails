@@ -60,8 +60,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { person: { attributes: { name: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "Name cannot be blank", person.errors.full_message(:name, "cannot be blank")
-    assert_equal "Name test cannot be blank", person.errors.full_message(:name_test, "cannot be blank")
+    assert_equal "Name cannot be blank", assert_deprecated { person.errors.full_message(:name, "cannot be blank") }
+    assert_equal "Name test cannot be blank", assert_deprecated { person.errors.full_message(:name_test, "cannot be blank") }
   end
 
   def test_errors_full_messages_uses_attribute_format
@@ -71,8 +71,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { person: { attributes: { name: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:name, "cannot be blank")
-    assert_equal "Name test cannot be blank", person.errors.full_message(:name_test, "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:name, "cannot be blank") }
+    assert_equal "Name test cannot be blank", assert_deprecated { person.errors.full_message(:name_test, "cannot be blank") }
   end
 
   def test_errors_full_messages_uses_model_format
@@ -82,8 +82,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { person: { format: "%{message}" } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:name, "cannot be blank")
-    assert_equal "cannot be blank", person.errors.full_message(:name_test, "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:name, "cannot be blank") }
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:name_test, "cannot be blank") }
   end
 
   def test_errors_full_messages_uses_deeply_nested_model_attributes_format
@@ -93,8 +93,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { attributes: { street: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts/addresses.street', "cannot be blank")
-    assert_equal "Contacts/addresses country cannot be blank", person.errors.full_message(:'contacts/addresses.country', "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts/addresses.street', "cannot be blank") }
+    assert_equal "Contacts/addresses country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts/addresses.country', "cannot be blank") }
   end
 
   def test_errors_full_messages_uses_deeply_nested_model_model_format
@@ -104,8 +104,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { format: "%{message}" } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts/addresses.street', "cannot be blank")
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts/addresses.country', "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts/addresses.street', "cannot be blank") }
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts/addresses.country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_indexed_deeply_nested_attributes_and_attributes_format
@@ -115,8 +115,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { attributes: { street: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "Contacts/addresses country cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "Contacts/addresses country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_indexed_deeply_nested_attributes_and_model_format
@@ -126,8 +126,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { format: "%{message}" } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_indexed_deeply_nested_attributes_and_i18n_attribute_name
@@ -138,8 +138,8 @@ class I18nValidationTest < ActiveModel::TestCase
     })
 
     person = Person.new
-    assert_equal "Contacts/addresses street cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "Country cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "Contacts/addresses street cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "Country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_indexed_deeply_nested_attributes_without_i18n_config
@@ -149,8 +149,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { attributes: { street: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "Contacts[0]/addresses[0] street cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "Contacts[0]/addresses[0] country cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "Contacts[0]/addresses[0] street cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "Contacts[0]/addresses[0] country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_i18n_attribute_name_without_i18n_config
@@ -161,8 +161,8 @@ class I18nValidationTest < ActiveModel::TestCase
     })
 
     person = Person.new
-    assert_equal "Contacts[0]/addresses[0] street cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "Country cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "Contacts[0]/addresses[0] street cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "Country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   # ActiveModel::Validations
