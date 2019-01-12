@@ -52,28 +52,28 @@ class ErrorTest < ActiveModel::TestCase
 
   test "match? handles mixed condition" do
     subject = ActiveModel::Error.new(self, :mineral, :not_enough, count: 2)
-    assert_equal false, subject.match?(:mineral, :too_coarse)
-    assert_equal true, subject.match?(:mineral, :not_enough)
-    assert_equal true, subject.match?(:mineral, :not_enough, count: 2)
-    assert_equal false, subject.match?(:mineral, :not_enough, count: 1)
+    assert_not subject.match?(:mineral, :too_coarse)
+    assert subject.match?(:mineral, :not_enough)
+    assert subject.match?(:mineral, :not_enough, count: 2)
+    assert_not subject.match?(:mineral, :not_enough, count: 1)
   end
 
   test "match? handles attribute match" do
     subject = ActiveModel::Error.new(self, :mineral, :not_enough, count: 2)
-    assert_equal false, subject.match?(:foo)
-    assert_equal true, subject.match?(:mineral)
+    assert_not subject.match?(:foo)
+    assert subject.match?(:mineral)
   end
 
   test "match? handles error type match" do
     subject = ActiveModel::Error.new(self, :mineral, :not_enough, count: 2)
-    assert_equal false, subject.match?(:mineral, :too_coarse)
-    assert_equal true, subject.match?(:mineral, :not_enough)
+    assert_not subject.match?(:mineral, :too_coarse)
+    assert subject.match?(:mineral, :not_enough)
   end
 
   test "match? handles extra options match" do
     subject = ActiveModel::Error.new(self, :mineral, :not_enough, count: 2)
-    assert_equal false, subject.match?(:mineral, :not_enough, count: 1)
-    assert_equal true, subject.match?(:mineral, :not_enough, count: 2)
+    assert_not subject.match?(:mineral, :not_enough, count: 1)
+    assert subject.match?(:mineral, :not_enough, count: 2)
   end
 
   # message
