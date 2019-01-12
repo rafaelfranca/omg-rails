@@ -404,9 +404,14 @@ module ActiveModel
     #   person.errors.added? :name, "is too long"                            # => false
     def added?(attribute, type = nil, options = {})
       attribute, type, options = normalize_arguments(attribute, type, options)
-      @errors.any? { |error|
-        error.strict_match?(attribute, type, options)
-      }
+
+      if message = options[:message]
+        messages_for(attribute).include?(message)
+      else
+        @errors.any? { |error|
+          error.strict_match?(attribute, type, options)
+        }
+      end
     end
 
     # Returns +true+ if an error on the attribute with the given message is
@@ -420,8 +425,18 @@ module ActiveModel
     #   person.errors.of_kind? :name, "is too long (maximum is 25 characters)" # => true
     #   person.errors.of_kind? :name, :not_too_long                            # => false
     #   person.errors.of_kind? :name, "is too long"                            # => false
-    def of_kind?(*args)
-      where(*args).size > 0
+    def of_kind?(attribute, type = nil)
+      attribute, type, options = normalize_arguments(attribute, type)
+
+      if message = options[:message]
+        messages_for(attribute).include?(message)
+      else
+        if type.nil?
+          added?(attribute, type)
+        else
+          @errors.any? { |error| error.match?(attribute, type) }
+        end
+      end
     end
 
     # Returns all the full error messages in an array.
