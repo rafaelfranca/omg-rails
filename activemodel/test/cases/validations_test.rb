@@ -236,14 +236,14 @@ class ValidationsTest < ActiveModel::TestCase
     assert_predicate t, :invalid?
 
     assert_equal :title, key = assert_deprecated { t.errors.keys[0] }
-    assert_equal "can't be blank", assert_deprecated { t.errors[key][0] }
-    assert_equal "is too short (minimum is 2 characters)", assert_deprecated { t.errors[key][1] }
+    assert_equal "can't be blank", t.errors[key][0]
+    assert_equal "is too short (minimum is 2 characters)", t.errors[key][1]
     assert_equal :author_name, key = assert_deprecated { t.errors.keys[1] }
-    assert_equal "can't be blank", assert_deprecated { t.errors[key][0] }
+    assert_equal "can't be blank", t.errors[key][0]
     assert_equal :author_email_address, key = assert_deprecated { t.errors.keys[2] }
     assert_equal "will never be valid", assert_deprecated { t.errors[key][0] }
     assert_equal :content, key = assert_deprecated { t.errors.keys[3] }
-    assert_equal "is too short (minimum is 2 characters)", assert_deprecated { t.errors[key][0] }
+    assert_equal "is too short (minimum is 2 characters)", t.errors[key][0]
   end
 
   def test_validation_with_if_and_on

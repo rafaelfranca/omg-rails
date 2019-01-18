@@ -210,7 +210,7 @@ module ActiveModel
     #   person.errors[:name]  # => ["cannot be nil"]
     #   person.errors['name'] # => ["cannot be nil"]
     def [](attribute)
-      messages[attribute.to_sym]
+      DeprecationHandlingMessageArray.new(messages_for(attribute), self, attribute)
     end
 
     # Iterates through each error key, value pair in the error messages hash.
