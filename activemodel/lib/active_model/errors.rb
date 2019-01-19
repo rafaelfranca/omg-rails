@@ -153,7 +153,7 @@ module ActiveModel
 
       keys = keys.map(&:to_sym)
 
-      results = messages.slice!(*keys)
+      results = messages.dup.slice!(*keys)
 
       @errors.keep_if do |error|
         keys.include?(error.attribute)
@@ -657,16 +657,7 @@ module ActiveModel
   class DeprecationHandlingMessageHash < SimpleDelegator
     def initialize(errors)
       @errors = errors
-
-      content = @errors.to_hash
-      content.each do |attribute, value|
-        content[attribute] = DeprecationHandlingMessageArray.new(value, @errors, attribute)
-      end
-      content.default_proc = proc do |hash, attribute|
-        hash[attribute] = DeprecationHandlingMessageArray.new([], @errors, attribute)
-      end
-
-      super(content)
+      super(prepare_content)
     end
 
     def []=(attribute, value)
@@ -676,15 +667,31 @@ module ActiveModel
         @errors.add(attribute, message)
       end
 
-      super(attribute, DeprecationHandlingMessageArray.new(@errors.messages_for(attribute), @errors, attribute))
+      __setobj__ prepare_content
     end
+
+    private
+
+      def prepare_content
+        content = @errors.to_hash
+        content.each do |attribute, value|
+          content[attribute] = DeprecationHandlingMessageArray.new(value, @errors, attribute)
+        end
+        content.default_proc = proc do |hash, attribute|
+          hash = hash.dup
+          hash[attribute] = DeprecationHandlingMessageArray.new([], @errors, attribute)
+          __setobj__ hash.freeze
+          hash[attribute]
+        end
+        content.freeze
+      end
   end
 
   class DeprecationHandlingMessageArray < SimpleDelegator
     def initialize(content, errors, attribute)
       @errors = errors
       @attribute = attribute
-      super(content)
+      super(content.freeze)
     end
 
     def <<(message)
