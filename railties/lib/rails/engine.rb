@@ -522,7 +522,7 @@ module Rails
     # Define the Rack API for this engine.
     def call(env)
       req = build_request env
-      app.call req.env
+      make_request(app, req)
     end
 
     # Defines additional Rack env configuration that is added on each call.
@@ -709,6 +709,10 @@ module Rails
         req.routes = routes
         req.engine_script_name = req.script_name
         req
+      end
+
+      def make_request(app, request)
+        app.call request.env
       end
 
       def build_middleware

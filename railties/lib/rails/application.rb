@@ -580,6 +580,17 @@ module Rails
 
     private
 
+      def make_request(app, request) # :nodoc:
+        payload = {
+          method: request.request_method,
+          path: request.fullpath
+        }
+
+        ActiveSupport::Notification.instrument("start_request.action_controller", payload) do
+          super
+        end
+      end
+
       def build_request(env)
         req = super
         env["ORIGINAL_FULLPATH"] = req.fullpath
