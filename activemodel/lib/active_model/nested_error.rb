@@ -21,6 +21,7 @@ module ActiveModel
       @inner_error = inner_error
       @attribute = override_options.fetch(:attribute) { inner_error.attribute }
       @type = override_options.fetch(:type) { inner_error.type }
+      @raw_type = inner_error.raw_type
       @options = inner_error.options
     end
 

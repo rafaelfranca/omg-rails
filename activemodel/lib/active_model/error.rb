@@ -5,20 +5,22 @@ module ActiveModel
   #
   # Represents one single error
   class Error
-    def initialize(base, attribute, type = nil, **options)
+    def initialize(base, attribute, type = nil, raw_type = nil, **options)
       @base = base
       @attribute = attribute
       @type = type || :invalid
+      @raw_type = raw_type
       @options = options
     end
 
     def initialize_dup(other)
       @attribute = @attribute.dup
       @type = @type.dup
+      @raw_type = @raw_type.dup
       @options = @options.deep_dup
     end
 
-    attr_reader :base, :attribute, :type, :options
+    attr_reader :base, :attribute, :type, :raw_type, :options
 
     # Translates an error message in its default scope
     # (<tt>activemodel.errors.messages</tt>).

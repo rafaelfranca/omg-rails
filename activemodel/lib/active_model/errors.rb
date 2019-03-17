@@ -319,7 +319,7 @@ module ActiveModel
       hash = {}
       group_by_attribute.each do |attribute, errors|
         hash[attribute] = errors.map { |error|
-          normalize_detail(error.type, error.options)
+          normalize_detail(error.raw_type, error.options)
         }
       end
       DeprecationHandlingDetailsHash.new(hash)
@@ -371,9 +371,12 @@ module ActiveModel
     #   person.errors.details
     #   # => {:base=>[{error: :name_or_email_blank}]}
     def add(attribute, type = nil, **options)
+      args = normalize_arguments(attribute, type, options)
+      args.insert(2, type) # TODO: remove once details' error attribute can be normalized type instead of raw type
+
       error = Error.new(
         @base,
-        *normalize_arguments(attribute, type, options)
+        *args
       )
 
       if exception = options[:strict]
