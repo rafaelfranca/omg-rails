@@ -322,7 +322,7 @@ module ActiveModel
           normalize_detail(error.type, error.options)
         }
       end
-      hash
+      DeprecationHandlingDetailsHash.new(hash)
     end
 
     def group_by_attribute
@@ -701,6 +701,14 @@ module ActiveModel
       @errors.add(@attribute, message)
       __setobj__ @errors.messages_for(@attribute)
       self
+    end
+  end
+
+  class DeprecationHandlingDetailsHash < SimpleDelegator
+    def initialize(details)
+      details.default = []
+      details.freeze
+      super(details)
     end
   end
 

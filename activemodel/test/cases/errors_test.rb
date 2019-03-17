@@ -558,7 +558,7 @@ class ErrorsTest < ActiveModel::TestCase
     errors = ActiveModel::Errors.new(Person.new)
     errors.add(:name, :invalid)
     errors.delete(:name)
-    assert_nil errors.details[:name]
+    assert_not errors.added?(:name)
   end
 
   test "delete returns the deleted messages" do
@@ -584,6 +584,12 @@ class ErrorsTest < ActiveModel::TestCase
 
     assert_equal [:name], person.errors.messages.keys
     assert_equal [:name], person.errors.details.keys
+  end
+
+  test "details returns empty array when accessed with non-existent attribute" do
+    errors = ActiveModel::Errors.new(Person.new)
+
+    assert_equal [], errors.details[:foo]
   end
 
   test "copy errors" do
