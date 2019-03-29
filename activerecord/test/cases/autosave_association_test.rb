@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "cases/helper"
+require "models/author"
 require "models/bird"
 require "models/post"
 require "models/comment"
@@ -77,7 +78,7 @@ class TestAutosaveAssociationsInGeneral < ActiveRecord::TestCase
     ship.prisoners.build
 
     assert_not_predicate ship, :valid?
-    assert_equal 1, ship.errors[:name].length
+    assert_equal 1, ship.errors.where(:name).size
   end
 
   private
@@ -461,7 +462,7 @@ class TestDefaultAutosaveAssociationOnAHasManyAssociationWithAcceptsNestedAttrib
     assert_predicate tuning_peg_valid, :valid?
     assert_not_predicate guitar, :valid?
     assert_equal [{ error: :not_a_number, value: nil }], guitar.errors.details[:"tuning_pegs[1].pitch"]
-    assert_equal [], guitar.errors.details[:"tuning_pegs.pitch"]
+    assert_not guitar.errors.details.key?(:"tuning_pegs.pitch")
   end
 
   def test_errors_details_should_be_indexed_when_global_flag_is_set
@@ -478,7 +479,7 @@ class TestDefaultAutosaveAssociationOnAHasManyAssociationWithAcceptsNestedAttrib
     assert_predicate valid_electron, :valid?
     assert_not_predicate molecule, :valid?
     assert_equal [{ error: :blank }], molecule.errors.details[:"electrons[1].name"]
-    assert_equal [], molecule.errors.details[:"electrons.name"]
+    assert_not molecule.errors.details.key?(:"electrons.name")
   ensure
     ActiveRecord::Base.index_nested_attribute_errors = old_attribute_config
   end
@@ -1319,21 +1320,45 @@ end
 class TestAutosaveAssociationOnAHasOneThroughAssociation < ActiveRecord::TestCase
   self.use_transactional_tests = false unless supports_savepoints?
 
-  def setup
-    super
+  def create_member_with_organization
     organization = Organization.create
-    @member = Member.create
-    MemberDetail.create(organization: organization, member: @member)
+    member = Member.create
+    MemberDetail.create(organization: organization, member: member)
+
+    member
   end
 
   def test_should_not_has_one_through_model
-    class << @member.organization
+    member = create_member_with_organization
+
+    class << member.organization
       def save(*args)
         super
         raise "Oh noes!"
       end
     end
-    assert_nothing_raised { @member.save }
+    assert_nothing_raised { member.save }
+  end
+
+  def create_author_with_post_with_comment
+    Author.create! name: "David" # make comment_id not match author_id
+    author = Author.create! name: "Sergiy"
+    post = Post.create! author: author, title: "foo", body: "bar"
+    Comment.create! post: post, body: "cool comment"
+
+    author
+  end
+
+  def test_should_not_reversed_has_one_through_model
+    author = create_author_with_post_with_comment
+
+    class << author.comment_on_first_post
+      def save(*args)
+        super
+        raise "Oh noes!"
+      end
+    end
+    assert_nothing_raised { author.save }
   end
 end
 

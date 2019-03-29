@@ -5,7 +5,7 @@ module ActiveRecord
   class Relation
     MULTI_VALUE_METHODS  = [:includes, :eager_load, :preload, :select, :group,
                             :order, :joins, :left_outer_joins, :references,
-                            :extending, :unscope]
+                            :extending, :unscope, :optimizer_hints, :annotate]
 
     SINGLE_VALUE_METHODS = [:limit, :offset, :lock, :readonly, :reordering,
                             :reverse_order, :distinct, :create_with, :skip_query_cache]
@@ -342,6 +342,8 @@ module ActiveRecord
     # trigger Active Record callbacks or validations. However, values passed to #update_all will still go through
     # Active Record's normal type casting and serialization.
     #
+    # Note: As Active Record callbacks are not triggered, this method will not automatically update +updated_at+/+updated_on+ columns.
+    #
     # ==== Parameters
     #
     # * +updates+ - A string, array, or hash representing the SET part of an SQL statement.
@@ -387,6 +389,8 @@ module ActiveRecord
         stmt.set Arel.sql(klass.sanitize_sql_for_assignment(updates, table.name))
       end
 
+      stmt.comment(*arel.comment_node.values) if arel.comment_node
+
       @klass.connection.update stmt, "#{@klass} Update All"
     end
 
@@ -416,10 +420,10 @@ module ActiveRecord
       update_all updates
     end
 
-    # Touches all records in the current relation without instantiating records first with the updated_at/on attributes
+    # Touches all records in the current relation without instantiating records first with the +updated_at+/+updated_on+ attributes
     # set to the current time or the time specified.
     # This method can be passed attribute names and an optional time argument.
-    # If attribute names are passed, they are updated along with updated_at/on attributes.
+    # If attribute names are passed, they are updated along with +updated_at+/+updated_on+ attributes.
     # If no time argument is passed, the current time is used as default.
     #
     # === Examples
@@ -502,6 +506,7 @@ module ActiveRecord
       stmt.offset(arel.offset)
       stmt.order(*arel.orders)
       stmt.wheres = arel.constraints
+      stmt.comment(*arel.comment_node.values) if arel.comment_node
 
       affected = @klass.connection.delete(stmt, "#{@klass} Destroy")
 

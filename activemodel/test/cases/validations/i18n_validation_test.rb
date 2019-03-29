@@ -34,16 +34,23 @@ class I18nValidationTest < ActiveModel::TestCase
   end
 
   def test_errors_full_messages_translates_human_attribute_name_for_model_attributes
-    @person.errors.add(:name, "not found")
-    assert_called_with(Person, :human_attribute_name, ["name", default: "Name"], returns: "Person's name") do
+    @person.errors.add(:title, "not found")
+    assert_called_with(Person, :human_attribute_name, [:title, default: "Title"], returns: "Person's name") do
       assert_equal ["Person's name not found"], @person.errors.full_messages
     end
   end
 
   def test_errors_full_messages_uses_format
     I18n.backend.store_translations("en", errors: { format: "Field %{attribute} %{message}" })
-    @person.errors.add("name", "empty")
-    assert_equal ["Field Name empty"], @person.errors.full_messages
+    @person.errors.add("title", "empty")
+    assert_equal ["Field Title empty"], @person.errors.full_messages
+  end
+
+  def test_errors_on_undefined_attribute_deprecation
+    @person.errors.add("horse_power", "too low")
+    assert_deprecated do
+      assert_equal ["Horse power too low"], @person.errors.full_messages
+    end
   end
 
   def test_errors_full_messages_doesnt_use_attribute_format_without_config
@@ -53,8 +60,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { person: { attributes: { name: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "Name cannot be blank", person.errors.full_message(:name, "cannot be blank")
-    assert_equal "Name test cannot be blank", person.errors.full_message(:name_test, "cannot be blank")
+    assert_equal "Name cannot be blank", assert_deprecated { person.errors.full_message(:name, "cannot be blank") }
+    assert_equal "Name test cannot be blank", assert_deprecated { person.errors.full_message(:name_test, "cannot be blank") }
   end
 
   def test_errors_full_messages_uses_attribute_format
@@ -64,8 +71,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { person: { attributes: { name: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:name, "cannot be blank")
-    assert_equal "Name test cannot be blank", person.errors.full_message(:name_test, "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:name, "cannot be blank") }
+    assert_equal "Name test cannot be blank", assert_deprecated { person.errors.full_message(:name_test, "cannot be blank") }
   end
 
   def test_errors_full_messages_uses_model_format
@@ -75,8 +82,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { person: { format: "%{message}" } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:name, "cannot be blank")
-    assert_equal "cannot be blank", person.errors.full_message(:name_test, "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:name, "cannot be blank") }
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:name_test, "cannot be blank") }
   end
 
   def test_errors_full_messages_uses_deeply_nested_model_attributes_format
@@ -86,8 +93,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { attributes: { street: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts/addresses.street', "cannot be blank")
-    assert_equal "Contacts/addresses country cannot be blank", person.errors.full_message(:'contacts/addresses.country', "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts/addresses.street', "cannot be blank") }
+    assert_equal "Contacts/addresses country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts/addresses.country', "cannot be blank") }
   end
 
   def test_errors_full_messages_uses_deeply_nested_model_model_format
@@ -97,8 +104,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { format: "%{message}" } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts/addresses.street', "cannot be blank")
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts/addresses.country', "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts/addresses.street', "cannot be blank") }
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts/addresses.country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_indexed_deeply_nested_attributes_and_attributes_format
@@ -108,8 +115,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { attributes: { street: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "Contacts/addresses country cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "Contacts/addresses country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_indexed_deeply_nested_attributes_and_model_format
@@ -119,8 +126,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { format: "%{message}" } } } })
 
     person = Person.new
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_indexed_deeply_nested_attributes_and_i18n_attribute_name
@@ -131,8 +138,8 @@ class I18nValidationTest < ActiveModel::TestCase
     })
 
     person = Person.new
-    assert_equal "Contacts/addresses street cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "Country cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "Contacts/addresses street cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "Country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_indexed_deeply_nested_attributes_without_i18n_config
@@ -142,8 +149,8 @@ class I18nValidationTest < ActiveModel::TestCase
       errors: { models: { 'person/contacts/addresses': { attributes: { street: { format: "%{message}" } } } } } })
 
     person = Person.new
-    assert_equal "Contacts[0]/addresses[0] street cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "Contacts[0]/addresses[0] country cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "Contacts[0]/addresses[0] street cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "Contacts[0]/addresses[0] country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   def test_errors_full_messages_with_i18n_attribute_name_without_i18n_config
@@ -154,8 +161,8 @@ class I18nValidationTest < ActiveModel::TestCase
     })
 
     person = Person.new
-    assert_equal "Contacts[0]/addresses[0] street cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank")
-    assert_equal "Country cannot be blank", person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank")
+    assert_equal "Contacts[0]/addresses[0] street cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].street', "cannot be blank") }
+    assert_equal "Country cannot be blank", assert_deprecated { person.errors.full_message(:'contacts[0]/addresses[0].country', "cannot be blank") }
   end
 
   # ActiveModel::Validations
@@ -167,8 +174,8 @@ class I18nValidationTest < ActiveModel::TestCase
     # [ case,                              validation_options,            generate_message_options]
     [ "given no options",                  {},                            {}],
     [ "given custom message",              { message: "custom" },         { message: "custom" }],
-    [ "given if condition",                { if:                          lambda { true } },  {}],
-    [ "given unless condition",            { unless:                      lambda { false } }, {}],
+    [ "given if condition",                { if: lambda { true } },       {}],
+    [ "given unless condition",            { unless: lambda { false } },  {}],
     [ "given option that is not reserved", { format: "jpg" },             { format: "jpg" }]
   ]
 
@@ -176,40 +183,48 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_confirmation_of on generated message #{name}" do
       Person.validates_confirmation_of :title, validation_options
       @person.title_confirmation = "foo"
-      call = [:title_confirmation, :confirmation, generate_message_options.merge(attribute: "Title")]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title_confirmation, error.attribute
+      assert_equal :confirmation, error.type
+      assert_equal generate_message_options.merge(attribute: "Title"), error.options
     end
   end
 
   COMMON_CASES.each do |name, validation_options, generate_message_options|
     test "validates_acceptance_of on generated message #{name}" do
       Person.validates_acceptance_of :title, validation_options.merge(allow_nil: false)
-      call = [:title, :accepted, generate_message_options]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :accepted, error.type
+      assert_equal generate_message_options, error.options
     end
   end
 
   COMMON_CASES.each do |name, validation_options, generate_message_options|
     test "validates_presence_of on generated message #{name}" do
       Person.validates_presence_of :title, validation_options
-      call = [:title, :blank, generate_message_options]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :blank, error.type
+      assert_equal generate_message_options, error.options
     end
   end
 
   COMMON_CASES.each do |name, validation_options, generate_message_options|
     test "validates_length_of for :within on generated message when too short #{name}" do
       Person.validates_length_of :title, validation_options.merge(within: 3..5)
-      call = [:title, :too_short, generate_message_options.merge(count: 3)]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :too_short, error.type
+      assert_equal generate_message_options.merge(count: 3), error.options
     end
   end
 
@@ -217,20 +232,24 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_length_of for :too_long generated message #{name}" do
       Person.validates_length_of :title, validation_options.merge(within: 3..5)
       @person.title = "this title is too long"
-      call = [:title, :too_long, generate_message_options.merge(count: 5)]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :too_long, error.type
+      assert_equal generate_message_options.merge(count: 5), error.options
     end
   end
 
   COMMON_CASES.each do |name, validation_options, generate_message_options|
     test "validates_length_of for :is on generated message #{name}" do
       Person.validates_length_of :title, validation_options.merge(is: 5)
-      call = [:title, :wrong_length, generate_message_options.merge(count: 5)]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :wrong_length, error.type
+      assert_equal generate_message_options.merge(count: 5), error.options
     end
   end
 
@@ -238,10 +257,12 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_format_of on generated message #{name}" do
       Person.validates_format_of :title, validation_options.merge(with: /\A[1-9][0-9]*\z/)
       @person.title = "72x"
-      call = [:title, :invalid, generate_message_options.merge(value: "72x")]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :invalid, error.type
+      assert_equal generate_message_options.merge(value: "72x"), error.options
     end
   end
 
@@ -249,10 +270,12 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_inclusion_of on generated message #{name}" do
       Person.validates_inclusion_of :title, validation_options.merge(in: %w(a b c))
       @person.title = "z"
-      call = [:title, :inclusion, generate_message_options.merge(value: "z")]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :inclusion, error.type
+      assert_equal generate_message_options.merge(value: "z"), error.options
     end
   end
 
@@ -260,10 +283,12 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_inclusion_of using :within on generated message #{name}" do
       Person.validates_inclusion_of :title, validation_options.merge(within: %w(a b c))
       @person.title = "z"
-      call = [:title, :inclusion, generate_message_options.merge(value: "z")]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :inclusion, error.type
+      assert_equal generate_message_options.merge(value: "z"), error.options
     end
   end
 
@@ -271,10 +296,12 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_exclusion_of generated message #{name}" do
       Person.validates_exclusion_of :title, validation_options.merge(in: %w(a b c))
       @person.title = "a"
-      call = [:title, :exclusion, generate_message_options.merge(value: "a")]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :exclusion, error.type
+      assert_equal generate_message_options.merge(value: "a"), error.options
     end
   end
 
@@ -282,10 +309,12 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_exclusion_of using :within generated message #{name}" do
       Person.validates_exclusion_of :title, validation_options.merge(within: %w(a b c))
       @person.title = "a"
-      call = [:title, :exclusion, generate_message_options.merge(value: "a")]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :exclusion, error.type
+      assert_equal generate_message_options.merge(value: "a"), error.options
     end
   end
 
@@ -293,10 +322,12 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_numericality_of generated message #{name}" do
       Person.validates_numericality_of :title, validation_options
       @person.title = "a"
-      call = [:title, :not_a_number, generate_message_options.merge(value: "a")]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :not_a_number, error.type
+      assert_equal generate_message_options.merge(value: "a"), error.options
     end
   end
 
@@ -304,10 +335,12 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_numericality_of for :only_integer on generated message #{name}" do
       Person.validates_numericality_of :title, validation_options.merge(only_integer: true)
       @person.title = "0.0"
-      call = [:title, :not_an_integer, generate_message_options.merge(value: "0.0")]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :not_an_integer, error.type
+      assert_equal generate_message_options.merge(value: "0.0"), error.options
     end
   end
 
@@ -315,10 +348,12 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_numericality_of for :odd on generated message #{name}" do
       Person.validates_numericality_of :title, validation_options.merge(only_integer: true, odd: true)
       @person.title = 0
-      call = [:title, :odd, generate_message_options.merge(value: 0)]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :odd, error.type
+      assert_equal generate_message_options.merge(value: 0), error.options
     end
   end
 
@@ -326,10 +361,12 @@ class I18nValidationTest < ActiveModel::TestCase
     test "validates_numericality_of for :less_than on generated message #{name}" do
       Person.validates_numericality_of :title, validation_options.merge(only_integer: true, less_than: 0)
       @person.title = 1
-      call = [:title, :less_than, generate_message_options.merge(value: 1, count: 0)]
-      assert_called_with(@person.errors, :generate_message, call) do
-        @person.valid?
-      end
+      @person.valid?
+      error = @person.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :less_than, error.type
+      assert_equal generate_message_options.merge(value: 1, count: 0), error.options
     end
   end
 

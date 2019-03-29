@@ -40,29 +40,35 @@ class I18nValidationTest < ActiveRecord::TestCase
   COMMON_CASES = [
     # [ case,                              validation_options,            generate_message_options]
     [ "given no options",                  {},                            {}],
-    [ "given custom message",              { message: "custom" },        { message: "custom" }],
-    [ "given if condition",                { if: lambda { true } },  {}],
-    [ "given unless condition",            { unless: lambda { false } }, {}],
-    [ "given option that is not reserved", { format: "jpg" },            { format: "jpg" }],
-    [ "given on condition",                { on: [:create, :update] },     {}]
+    [ "given custom message",              { message: "custom" },         { message: "custom" }],
+    [ "given if condition",                { if: lambda { true } },       {}],
+    [ "given unless condition",            { unless: lambda { false } },  {}],
+    [ "given option that is not reserved", { format: "jpg" },             { format: "jpg" }],
+    [ "given on condition",                { on: [:create, :update] },    {}]
   ]
 
   COMMON_CASES.each do |name, validation_options, generate_message_options|
     test "validates_uniqueness_of on generated message #{name}" do
       Topic.validates_uniqueness_of :title, validation_options
       @topic.title = unique_topic.title
-      assert_called_with(@topic.errors, :generate_message, [:title, :taken, generate_message_options.merge(value: "unique!")]) do
-        @topic.valid?
-      end
+      @topic.valid?
+      error = @topic.errors.objects.first
+
+      assert_equal :title, error.attribute
+      assert_equal :taken, error.type
+      assert_equal generate_message_options.merge(value: "unique!"), error.options
     end
   end
 
   COMMON_CASES.each do |name, validation_options, generate_message_options|
     test "validates_associated on generated message #{name}" do
       Topic.validates_associated :replies, validation_options
-      assert_called_with(replied_topic.errors, :generate_message, [:replies, :invalid, generate_message_options.merge(value: replied_topic.replies)]) do
-        replied_topic.save
-      end
+      replied_topic.save
+      error = replied_topic.errors.objects.first
+
+      assert_equal :replies, error.attribute
+      assert_equal :invalid, error.type
+      assert_equal generate_message_options.merge(value: replied_topic.replies), error.options
     end
   end
 
