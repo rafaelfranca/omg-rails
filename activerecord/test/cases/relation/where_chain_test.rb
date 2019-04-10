@@ -24,6 +24,7 @@ module ActiveRecord
     def test_not_inverts_where_clause
       relation = Post.where.not(title: "hello")
       expected_where_clause = Post.where(title: "hello").where_clause.invert
+
       assert_equal expected_where_clause, relation.where_clause
     end
 
