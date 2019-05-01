@@ -69,31 +69,35 @@ module ActiveSupport
       def start
         @pool = @queue_size.times.map do |worker|
           fork do
+            DRb.stop_service
+
             begin
-              DRb.stop_service
-
               after_fork(worker)
+            rescue => setup_exception; end
 
-              queue = DRbObject.new_with_uri(@url)
+            queue = DRbObject.new_with_uri(@url)
 
-              while job = queue.pop
-                klass    = job[0]
-                method   = job[1]
-                reporter = job[2]
-                result   = Minitest.run_one_method(klass, method)
-
-                begin
-                  queue.record(reporter, result)
-                rescue DRb::DRbConnError
-                  result.failures.each do |failure|
-                    failure.exception = DRb::DRbRemoteError.new(failure.exception)
-                  end
-                  queue.record(reporter, result)
-                end
+            while job = queue.pop
+              klass    = job[0]
+              method   = job[1]
+              reporter = job[2]
+              result = klass.with_info_handler reporter do
+                Minitest.run_one_method(klass, method)
               end
-            ensure
-              run_cleanup(worker)
+
+              add_setup_exception(result, setup_exception) if setup_exception
+
+              begin
+                queue.record(reporter, result)
+              rescue DRb::DRbConnError
+                result.failures.each do |failure|
+                  failure.exception = DRb::DRbRemoteError.new(failure.exception)
+                end
+                queue.record(reporter, result)
+              end
             end
+          ensure
+            run_cleanup(worker)
           end
         end
       end
@@ -106,6 +110,11 @@ module ActiveSupport
         @queue_size.times { @queue << nil }
         @pool.each { |pid| Process.waitpid pid }
       end
+
+      private
+        def add_setup_exception(result, setup_exception)
+          result.failures.prepend Minitest::UnexpectedError.new(setup_exception)
+        end
     end
   end
 end

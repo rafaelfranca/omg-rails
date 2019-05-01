@@ -24,8 +24,12 @@ module Arel # :nodoc: all
         value.nil?
       end
 
-      def boundable?
-        !value.respond_to?(:boundable?) || value.boundable?
+      def infinite?
+        value.respond_to?(:infinite?) && value.infinite?
+      end
+
+      def unboundable?
+        value.respond_to?(:unboundable?) && value.unboundable?
       end
     end
   end

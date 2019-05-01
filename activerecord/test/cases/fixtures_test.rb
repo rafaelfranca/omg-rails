@@ -73,14 +73,12 @@ class FixturesTest < ActiveRecord::TestCase
 
   if current_adapter?(:Mysql2Adapter, :PostgreSQLAdapter)
     def test_bulk_insert
-      begin
-        subscriber = InsertQuerySubscriber.new
-        subscription = ActiveSupport::Notifications.subscribe("sql.active_record", subscriber)
-        create_fixtures("bulbs")
-        assert_equal 1, subscriber.events.size, "It takes one INSERT query to insert two fixtures"
-      ensure
-        ActiveSupport::Notifications.unsubscribe(subscription)
-      end
+      subscriber = InsertQuerySubscriber.new
+      subscription = ActiveSupport::Notifications.subscribe("sql.active_record", subscriber)
+      create_fixtures("bulbs")
+      assert_equal 1, subscriber.events.size, "It takes one INSERT query to insert two fixtures"
+    ensure
+      ActiveSupport::Notifications.unsubscribe(subscription)
     end
 
     def test_bulk_insert_multiple_table_with_a_multi_statement_query
@@ -211,7 +209,7 @@ class FixturesTest < ActiveRecord::TestCase
       conn = ActiveRecord::Base.connection
       mysql_margin = 2
       packet_size = 1024
-      bytes_needed_to_have_a_1024_bytes_fixture = 858
+      bytes_needed_to_have_a_1024_bytes_fixture = 906
       fixtures = {
         "traffic_lights" => [
           { "location" => "US", "state" => ["NY"], "long_state" => ["a" * bytes_needed_to_have_a_1024_bytes_fixture] },
@@ -298,20 +296,6 @@ class FixturesTest < ActiveRecord::TestCase
     conn = ActiveRecord::Base.connection
     assert_nothing_raised do
       conn.insert_fixtures_set({ "aircraft" => fixtures }, ["aircraft"])
-    end
-    result = conn.select_all("SELECT name, wheels_count FROM aircraft ORDER BY id")
-    assert_equal fixtures, result.to_a
-  end
-
-  def test_deprecated_insert_fixtures
-    fixtures = [
-      { "name" => "first", "wheels_count" => 2 },
-      { "name" => "second", "wheels_count" => 3 }
-    ]
-    conn = ActiveRecord::Base.connection
-    conn.delete("DELETE FROM aircraft")
-    assert_deprecated do
-      conn.insert_fixtures(fixtures, "aircraft")
     end
     result = conn.select_all("SELECT name, wheels_count FROM aircraft ORDER BY id")
     assert_equal fixtures, result.to_a
@@ -512,11 +496,7 @@ class FixturesTest < ActiveRecord::TestCase
       ActiveRecord::FixtureSet.create_fixtures(FIXTURES_ROOT + "/naked/yml", "parrots")
     end
 
-    if current_adapter?(:SQLite3Adapter)
-      assert_equal(%(table "parrots" has no column named "arrr".), e.message)
-    else
-      assert_equal(%(table "parrots" has no columns named "arrr", "foobar".), e.message)
-    end
+    assert_equal(%(table "parrots" has no columns named "arrr", "foobar".), e.message)
   end
 
   def test_yaml_file_with_symbol_columns
@@ -940,7 +920,7 @@ class TransactionalFixturesOnConnectionNotification < ActiveRecord::TestCase
       def lock_thread=(lock_thread); end
     end.new
 
-    assert_called_with(connection, :begin_transaction, [joinable: false]) do
+    assert_called_with(connection, :begin_transaction, [joinable: false, _lazy: false]) do
       fire_connection_notification(connection)
     end
   end
@@ -1363,4 +1343,38 @@ class NilFixturePathTest < ActiveRecord::TestCase
       Please set `NilFixturePathTest::TestCase.fixture_path`.
     MSG
   end
+end
+
+class MultipleDatabaseFixturesTest < ActiveRecord::TestCase
+  test "enlist_fixture_connections ensures multiple databases share a connection pool" do
+    with_temporary_connection_pool do
+      ActiveRecord::Base.connects_to database: { writing: :arunit, reading: :arunit2 }
+
+      rw_conn = ActiveRecord::Base.connection
+      ro_conn = ActiveRecord::Base.connection_handlers[:reading].connection_pool_list.first.connection
+
+      assert_not_equal rw_conn, ro_conn
+
+      enlist_fixture_connections
+
+      rw_conn = ActiveRecord::Base.connection
+      ro_conn = ActiveRecord::Base.connection_handlers[:reading].connection_pool_list.first.connection
+
+      assert_equal rw_conn, ro_conn
+    end
+  ensure
+    ActiveRecord::Base.connection_handlers = { writing: ActiveRecord::Base.connection_handler }
+  end
+
+  private
+
+    def with_temporary_connection_pool
+      old_pool = ActiveRecord::Base.connection_handler.retrieve_connection_pool(ActiveRecord::Base.connection_specification_name)
+      new_pool = ActiveRecord::ConnectionAdapters::ConnectionPool.new ActiveRecord::Base.connection_pool.spec
+      ActiveRecord::Base.connection_handler.send(:owner_to_pool)["primary"] = new_pool
+
+      yield
+    ensure
+      ActiveRecord::Base.connection_handler.send(:owner_to_pool)["primary"] = old_pool
+    end
 end

@@ -553,7 +553,7 @@ module ActionView
         url_string = URI.parser.unescape(url_for(options)).force_encoding(Encoding::BINARY)
 
         # We ignore any extra parameters in the request_uri if the
-        # submitted url doesn't have any either. This lets the function
+        # submitted URL doesn't have any either. This lets the function
         # work with things like ?order=asc
         # the behaviour can be disabled with check_parameters: true
         request_uri = url_string.index("?") || check_parameters ? request.fullpath : request.path
@@ -618,7 +618,7 @@ module ActionView
         end
 
         def token_tag(token = nil, form_options: {})
-          if token != false && protect_against_forgery?
+          if token != false && defined?(protect_against_forgery?) && protect_against_forgery?
             token ||= form_authenticity_token(form_options: form_options)
             tag(:input, type: "hidden", name: request_forgery_protection_token.to_s, value: token)
           else

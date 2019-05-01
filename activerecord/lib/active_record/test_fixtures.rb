@@ -122,7 +122,7 @@ module ActiveRecord
         # Begin transactions for connections already established
         @fixture_connections = enlist_fixture_connections
         @fixture_connections.each do |connection|
-          connection.begin_transaction joinable: false
+          connection.begin_transaction joinable: false, _lazy: false
           connection.pool.lock_thread = true if lock_threads
         end
 
@@ -138,7 +138,7 @@ module ActiveRecord
             end
 
             if connection && !@fixture_connections.include?(connection)
-              connection.begin_transaction joinable: false
+              connection.begin_transaction joinable: false, _lazy: false
               connection.pool.lock_thread = true if lock_threads
               @fixture_connections << connection
             end
@@ -173,10 +173,33 @@ module ActiveRecord
     end
 
     def enlist_fixture_connections
+      setup_shared_connection_pool
+
       ActiveRecord::Base.connection_handler.connection_pool_list.map(&:connection)
     end
 
     private
+
+      # Shares the writing connection pool with connections on
+      # other handlers.
+      #
+      # In an application with a primary and replica the test fixtures
+      # need to share a connection pool so that the reading connection
+      # can see data in the open transaction on the writing connection.
+      def setup_shared_connection_pool
+        writing_handler = ActiveRecord::Base.connection_handler
+
+        ActiveRecord::Base.connection_handlers.values.each do |handler|
+          if handler != writing_handler
+            handler.connection_pool_list.each do |pool|
+              name = pool.spec.name
+              writing_connection = writing_handler.retrieve_connection_pool(name)
+              handler.send(:owner_to_pool)[name] = writing_connection
+            end
+          end
+        end
+      end
+
       def load_fixtures(config)
         fixtures = ActiveRecord::FixtureSet.create_fixtures(fixture_path, fixture_table_names, fixture_class_names, config)
         Hash[fixtures.map { |f| [f.name, f] }]

@@ -23,6 +23,8 @@ module Rails
     autoload :ActiveModel,     "rails/generators/active_model"
     autoload :Base,            "rails/generators/base"
     autoload :Migration,       "rails/generators/migration"
+    autoload :Database,        "rails/generators/database"
+    autoload :AppName,         "rails/generators/app_name"
     autoload :NamedBase,       "rails/generators/named_base"
     autoload :ResourceHelpers, "rails/generators/resource_helpers"
     autoload :TestCase,        "rails/generators/test_case"
@@ -33,6 +35,8 @@ module Rails
       rails: {
         actions: "-a",
         orm: "-o",
+        javascripts: "-j",
+        javascript_engine: "-je",
         resource_controller: "-c",
         scaffold_controller: "-c",
         stylesheets: "-y",
@@ -218,6 +222,7 @@ module Rails
         rails.delete("encryption_key_file")
         rails.delete("master_key")
         rails.delete("credentials")
+        rails.delete("db:system:change")
 
         hidden_namespaces.each { |n| groups.delete(n.to_s) }
 
@@ -272,8 +277,10 @@ module Rails
         else
           options     = sorted_groups.flat_map(&:last)
           suggestion  = Rails::Command::Spellchecker.suggest(namespace.to_s, from: options)
+          suggestion_msg = "Maybe you meant #{suggestion.inspect}?" if suggestion
+
           puts <<~MSG
-            Could not find generator '#{namespace}'. Maybe you meant #{suggestion.inspect}?
+            Could not find generator '#{namespace}'. #{suggestion_msg}
             Run `rails generate --help` for more options.
           MSG
         end

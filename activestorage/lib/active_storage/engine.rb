@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 require "rails"
+require "action_controller/railtie"
+require "active_job/railtie"
+require "active_record/railtie"
+
 require "active_storage"
 
 require "active_storage/previewer/poppler_pdf_previewer"
@@ -20,6 +24,7 @@ module ActiveStorage
     config.active_storage.previewers = [ ActiveStorage::Previewer::PopplerPDFPreviewer, ActiveStorage::Previewer::MuPDFPreviewer, ActiveStorage::Previewer::VideoPreviewer ]
     config.active_storage.analyzers = [ ActiveStorage::Analyzer::ImageAnalyzer, ActiveStorage::Analyzer::VideoAnalyzer ]
     config.active_storage.paths = ActiveSupport::OrderedOptions.new
+    config.active_storage.queues = ActiveSupport::OrderedOptions.new
 
     config.active_storage.variable_content_types = %w(
       image/png
@@ -27,6 +32,8 @@ module ActiveStorage
       image/jpg
       image/jpeg
       image/pjpeg
+      image/tiff
+      image/bmp
       image/vnd.adobe.photoshop
       image/vnd.microsoft.icon
     )
@@ -49,6 +56,8 @@ module ActiveStorage
       image/gif
       image/jpg
       image/jpeg
+      image/tiff
+      image/bmp
       image/vnd.adobe.photoshop
       image/vnd.microsoft.icon
       application/pdf
@@ -59,7 +68,6 @@ module ActiveStorage
     initializer "active_storage.configs" do
       config.after_initialize do |app|
         ActiveStorage.logger            = app.config.active_storage.logger || Rails.logger
-        ActiveStorage.queue             = app.config.active_storage.queue
         ActiveStorage.variant_processor = app.config.active_storage.variant_processor || :mini_magick
         ActiveStorage.previewers        = app.config.active_storage.previewers || []
         ActiveStorage.analyzers         = app.config.active_storage.analyzers || []
@@ -111,6 +119,20 @@ module ActiveStorage
             rescue => e
               raise e, "Cannot load `Rails.config.active_storage.service`:\n#{e.message}", e.backtrace
             end
+        end
+      end
+    end
+
+    initializer "active_storage.queues" do
+      config.after_initialize do |app|
+        if queue = app.config.active_storage.queue
+          ActiveSupport::Deprecation.warn \
+            "config.active_storage.queue is deprecated and will be removed in Rails 6.1. " \
+            "Set config.active_storage.queues.purge and config.active_storage.queues.analysis instead."
+
+          ActiveStorage.queues = { purge: queue, analysis: queue }
+        else
+          ActiveStorage.queues = app.config.active_storage.queues || {}
         end
       end
     end

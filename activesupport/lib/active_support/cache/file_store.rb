@@ -18,7 +18,6 @@ module ActiveSupport
       DIR_FORMATTER = "%03X"
       FILENAME_MAX_SIZE = 228 # max filename size on file system is 255, minus room for timestamp and random characters appended by Tempfile (used by atomic write)
       FILEPATH_MAX_SIZE = 900 # max is 1024, plus some room
-      EXCLUDED_DIRS = [".", ".."].freeze
       GITKEEP_FILES = [".gitkeep", ".keep"].freeze
 
       def initialize(cache_path, options = nil)
@@ -35,7 +34,7 @@ module ActiveSupport
       # file store directory except for .keep or .gitkeep. Be careful which directory is specified in your
       # config file when using +FileStore+ because everything in that directory will be deleted.
       def clear(options = nil)
-        root_dirs = exclude_from(cache_path, EXCLUDED_DIRS + GITKEEP_FILES)
+        root_dirs = (Dir.children(cache_path) - GITKEEP_FILES)
         FileUtils.rm_r(root_dirs.collect { |f| File.join(cache_path, f) })
       rescue Errno::ENOENT
       end
@@ -108,12 +107,10 @@ module ActiveSupport
         def lock_file(file_name, &block)
           if File.exist?(file_name)
             File.open(file_name, "r+") do |f|
-              begin
-                f.flock File::LOCK_EX
-                yield
-              ensure
-                f.flock File::LOCK_UN
-              end
+              f.flock File::LOCK_EX
+              yield
+            ensure
+              f.flock File::LOCK_UN
             end
           else
             yield
@@ -156,7 +153,7 @@ module ActiveSupport
         # Delete empty directories in the cache.
         def delete_empty_directories(dir)
           return if File.realpath(dir) == File.realpath(cache_path)
-          if exclude_from(dir, EXCLUDED_DIRS).empty?
+          if Dir.children(dir).empty?
             Dir.delete(dir) rescue nil
             delete_empty_directories(File.dirname(dir))
           end
@@ -169,8 +166,7 @@ module ActiveSupport
 
         def search_dir(dir, &callback)
           return if !File.exist?(dir)
-          Dir.foreach(dir) do |d|
-            next if EXCLUDED_DIRS.include?(d)
+          Dir.each_child(dir) do |d|
             name = File.join(dir, d)
             if File.directory?(name)
               search_dir(name, &callback)
@@ -194,11 +190,6 @@ module ActiveSupport
               num
             end
           end
-        end
-
-        # Exclude entries from source directory
-        def exclude_from(source, excludes)
-          Dir.entries(source).reject { |f| excludes.include?(f) }
         end
     end
   end

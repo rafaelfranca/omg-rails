@@ -4,7 +4,6 @@ require "active_support/core_ext/hash/indifferent_access"
 require "active_support/core_ext/array/wrap"
 require "active_support/core_ext/string/filters"
 require "active_support/core_ext/object/to_query"
-require "active_support/rescuable"
 require "action_dispatch/http/upload"
 require "rack/test"
 require "stringio"
@@ -795,7 +794,7 @@ module ActionController
         @permitted  = coder.map["ivars"][:@permitted]
       when "!ruby/object:ActionController::Parameters"
         # YAML's Object format. Only needed because of the format
-        # backwardscompability above, otherwise equivalent to YAML's initialization.
+        # backwards compatibility above, otherwise equivalent to YAML's initialization.
         @parameters, @permitted = coder.map["parameters"], coder.map["permitted"]
       end
     end
@@ -1092,9 +1091,6 @@ module ActionController
   # See ActionController::Parameters.require and ActionController::Parameters.permit
   # for more information.
   module StrongParameters
-    extend ActiveSupport::Concern
-    include ActiveSupport::Rescuable
-
     # Returns a new ActionController::Parameters object that
     # has been instantiated with the <tt>request.parameters</tt>.
     def params

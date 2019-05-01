@@ -27,6 +27,14 @@ module ActiveRecord
           scope = current_scope
 
           if scope
+            if scope._deprecated_scope_source
+              ActiveSupport::Deprecation.warn(<<~MSG.squish)
+                Class level methods will no longer inherit scoping from `#{scope._deprecated_scope_source}`
+                in Rails 6.1. To continue using the scoped relation, pass it into the block directly.
+                To instead access the full set of models, as Rails 6.1 will, use `#{name}.unscoped`.
+              MSG
+            end
+
             if self == scope.klass
               scope.clone
             else
@@ -50,7 +58,7 @@ module ActiveRecord
         end
 
         def default_extensions # :nodoc:
-          if scope = current_scope || build_default_scope
+          if scope = scope_for_association || build_default_scope
             scope.extensions
           else
             []
@@ -179,13 +187,13 @@ module ActiveRecord
           extension = Module.new(&block) if block
 
           if body.respond_to?(:to_proc)
-            singleton_class.send(:define_method, name) do |*args|
-              scope = all._exec_scope(*args, &body)
+            singleton_class.define_method(name) do |*args|
+              scope = all._exec_scope(name, *args, &body)
               scope = scope.extending(extension) if extension
               scope
             end
           else
-            singleton_class.send(:define_method, name) do |*args|
+            singleton_class.define_method(name) do |*args|
               scope = body.call(*args) || all
               scope = scope.extending(extension) if extension
               scope

@@ -35,7 +35,7 @@ You can find a list of all released Rails versions [here](https://rubygems.org/g
 
 Rails generally stays close to the latest released Ruby version when it's released:
 
-* Rails 6 requires Ruby 2.4.1 or newer.
+* Rails 6 requires Ruby 2.5.0 or newer.
 * Rails 5 requires Ruby 2.2.2 or newer.
 * Rails 4 prefers Ruby 2.0 and requires 1.9.3 or newer.
 * Rails 3.2.x is the last branch to support Ruby 1.8.7.
@@ -85,17 +85,53 @@ Rails 6.1. You are encouraged to enable `config.force_ssl` to enforce HTTPS
 connections throughout your application. If you need to exempt certain endpoints
 from redirection, you can use `config.ssl_options` to configure that behavior.
 
-### Purpose in signed or encrypted cookie is now embedded in the cookies values
+### Purpose in signed or encrypted cookie is now embedded within cookies
 
-To improve security, Rails now embeds the purpose information in encrypted or signed cookies value.
-Rails can now thwart attacks that attempt to copy signed/encrypted value
+To improve security, Rails embeds the purpose information in encrypted or signed cookies value.
+Rails can then thwart attacks that attempt to copy the signed/encrypted value
 of a cookie and use it as the value of another cookie.
 
 This new embed information make those cookies incompatible with versions of Rails older than 6.0.
 
-If you require your cookies to be read by 5.2 and older, or you are still validating your 6.0 deploy and want
-to allow you to rollback set
+If you require your cookies to be read by Rails 5.2 and older, or you are still validating your 6.0 deploy and want
+to be able to rollback set
 `Rails.application.config.action_dispatch.use_cookies_with_metadata` to `false`.
+
+### Action Cable JavaScript API Changes
+
+The Action Cable JavaScript package has been converted from CoffeeScript
+to ES2015, and we now publish the source code in the npm distribution.
+
+This release includes some breaking changes to optional parts of the
+Action Cable JavaScript API:
+
+- Configuration of the WebSocket adapter and logger adapter have been moved
+  from properties of `ActionCable` to properties of `ActionCable.adapters`.
+  If you are configuring these adapters you will need to make
+  these changes:
+
+  ```diff
+  -    ActionCable.WebSocket = MyWebSocket
+  +    ActionCable.adapters.WebSocket = MyWebSocket
+  ```
+  ```diff
+  -    ActionCable.logger = myLogger
+  +    ActionCable.adapters.logger = myLogger
+  ```
+
+- The `ActionCable.startDebugging()` and `ActionCable.stopDebugging()`
+  methods have been removed and replaced with the property
+  `ActionCable.logger.enabled`. If you are using these methods you
+  will need to make these changes:
+
+  ```diff
+  -    ActionCable.startDebugging()
+  +    ActionCable.logger.enabled = true
+  ```
+  ```diff
+  -    ActionCable.stopDebugging()
+  +    ActionCable.logger.enabled = false
+  ```
 
 Upgrading from Rails 5.1 to Rails 5.2
 -------------------------------------
@@ -622,7 +658,7 @@ gem 'rails-deprecated_sanitizer'
 
 ### Rails DOM Testing
 
-The [`TagAssertions` module](http://api.rubyonrails.org/v4.1/classes/ActionDispatch/Assertions/TagAssertions.html) (containing methods such as `assert_tag`), [has been deprecated](https://github.com/rails/rails/blob/6061472b8c310158a2a2e8e9a6b81a1aef6b60fe/actionpack/lib/action_dispatch/testing/assertions/dom.rb) in favor of the `assert_select` methods from the `SelectorAssertions` module, which has been extracted into the [rails-dom-testing gem](https://github.com/rails/rails-dom-testing).
+The [`TagAssertions` module](https://api.rubyonrails.org/v4.1/classes/ActionDispatch/Assertions/TagAssertions.html) (containing methods such as `assert_tag`), [has been deprecated](https://github.com/rails/rails/blob/6061472b8c310158a2a2e8e9a6b81a1aef6b60fe/actionpack/lib/action_dispatch/testing/assertions/dom.rb) in favor of the `assert_select` methods from the `SelectorAssertions` module, which has been extracted into the [rails-dom-testing gem](https://github.com/rails/rails-dom-testing).
 
 
 ### Masked Authenticity Tokens

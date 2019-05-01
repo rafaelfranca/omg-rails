@@ -438,18 +438,18 @@ module ActiveSupport
         options = merged_options(options)
 
         instrument :read_multi, names, options do |payload|
-          read_multi_entries(names, options).tap do |results|
-            payload[:hits] = results.keys
-            payload[:super_operation] = :fetch_multi
-
-            writes = {}
-
-            (names - results.keys).each do |name|
-              results[name] = writes[name] = yield(name)
-            end
-
-            write_multi writes, options
+          reads   = read_multi_entries(names, options)
+          writes  = {}
+          ordered = names.each_with_object({}) do |name, hash|
+            hash[name] = reads.fetch(name) { writes[name] = yield(name) }
           end
+
+          payload[:hits] = reads.keys
+          payload[:super_operation] = :fetch_multi
+
+          write_multi(writes, options)
+
+          ordered
         end
       end
 
@@ -492,7 +492,7 @@ module ActiveSupport
       #
       # Options are passed to the underlying cache implementation.
       #
-      # All implementations may not support this method.
+      # Some implementations may not support this method.
       def delete_matched(matcher, options = nil)
         raise NotImplementedError.new("#{self.class.name} does not support delete_matched")
       end
@@ -501,7 +501,7 @@ module ActiveSupport
       #
       # Options are passed to the underlying cache implementation.
       #
-      # All implementations may not support this method.
+      # Some implementations may not support this method.
       def increment(name, amount = 1, options = nil)
         raise NotImplementedError.new("#{self.class.name} does not support increment")
       end
@@ -510,7 +510,7 @@ module ActiveSupport
       #
       # Options are passed to the underlying cache implementation.
       #
-      # All implementations may not support this method.
+      # Some implementations may not support this method.
       def decrement(name, amount = 1, options = nil)
         raise NotImplementedError.new("#{self.class.name} does not support decrement")
       end
@@ -519,7 +519,7 @@ module ActiveSupport
       #
       # Options are passed to the underlying cache implementation.
       #
-      # All implementations may not support this method.
+      # Some implementations may not support this method.
       def cleanup(options = nil)
         raise NotImplementedError.new("#{self.class.name} does not support cleanup")
       end
@@ -529,7 +529,7 @@ module ActiveSupport
       #
       # The options hash is passed to the underlying cache implementation.
       #
-      # All implementations may not support this method.
+      # Some implementations may not support this method.
       def clear(options = nil)
         raise NotImplementedError.new("#{self.class.name} does not support clear")
       end

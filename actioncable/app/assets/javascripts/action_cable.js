@@ -3,8 +3,8 @@
 })(this, function(exports) {
   "use strict";
   var adapters = {
-    logger: window.console,
-    WebSocket: window.WebSocket
+    logger: self.console,
+    WebSocket: self.WebSocket
   };
   var logger = {
     log: function log() {
@@ -28,6 +28,22 @@
       throw new TypeError("Cannot call a class as a function");
     }
   };
+  var createClass = function() {
+    function defineProperties(target, props) {
+      for (var i = 0; i < props.length; i++) {
+        var descriptor = props[i];
+        descriptor.enumerable = descriptor.enumerable || false;
+        descriptor.configurable = true;
+        if ("value" in descriptor) descriptor.writable = true;
+        Object.defineProperty(target, descriptor.key, descriptor);
+      }
+    }
+    return function(Constructor, protoProps, staticProps) {
+      if (protoProps) defineProperties(Constructor.prototype, protoProps);
+      if (staticProps) defineProperties(Constructor, staticProps);
+      return Constructor;
+    };
+  }();
   var now = function now() {
     return new Date().getTime();
   };
@@ -49,7 +65,7 @@
         this.startedAt = now();
         delete this.stoppedAt;
         this.startPolling();
-        document.addEventListener("visibilitychange", this.visibilityDidChange);
+        addEventListener("visibilitychange", this.visibilityDidChange);
         logger.log("ConnectionMonitor started. pollInterval = " + this.getPollInterval() + " ms");
       }
     };
@@ -57,7 +73,7 @@
       if (this.isRunning()) {
         this.stoppedAt = now();
         this.stopPolling();
-        document.removeEventListener("visibilitychange", this.visibilityDidChange);
+        removeEventListener("visibilitychange", this.visibilityDidChange);
         logger.log("ConnectionMonitor stopped");
       }
     };
@@ -192,7 +208,7 @@
         this.monitor.stop();
       }
       if (this.isActive()) {
-        return this.webSocket ? this.webSocket.close() : undefined;
+        return this.webSocket.close();
       }
     };
     Connection.prototype.reopen = function reopen() {
@@ -211,7 +227,9 @@
       }
     };
     Connection.prototype.getProtocol = function getProtocol() {
-      return this.webSocket ? this.webSocket.protocol : undefined;
+      if (this.webSocket) {
+        return this.webSocket.protocol;
+      }
     };
     Connection.prototype.isOpen = function isOpen() {
       return this.isState("open");
@@ -430,7 +448,7 @@
   var Consumer = function() {
     function Consumer(url) {
       classCallCheck(this, Consumer);
-      this.url = url;
+      this._url = url;
       this.subscriptions = new Subscriptions(this);
       this.connection = new Connection(this);
     }
@@ -450,20 +468,18 @@
         return this.connection.open();
       }
     };
+    createClass(Consumer, [ {
+      key: "url",
+      get: function get$$1() {
+        return createWebSocketURL(this._url);
+      }
+    } ]);
     return Consumer;
   }();
-  function createConsumer(url) {
-    if (url == null) {
-      var urlConfig = getConfig("url");
-      url = urlConfig ? urlConfig : INTERNAL.default_mount_path;
-    }
-    return new Consumer(createWebSocketURL(url));
-  }
-  function getConfig(name) {
-    var element = document.head.querySelector("meta[name='action-cable-" + name + "']");
-    return element ? element.getAttribute("content") : undefined;
-  }
   function createWebSocketURL(url) {
+    if (typeof url === "function") {
+      url = url();
+    }
     if (url && !/^wss?:/i.test(url)) {
       var a = document.createElement("a");
       a.href = url;
@@ -474,6 +490,16 @@
       return url;
     }
   }
+  function createConsumer() {
+    var url = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : getConfig("url") || INTERNAL.default_mount_path;
+    return new Consumer(url);
+  }
+  function getConfig(name) {
+    var element = document.head.querySelector("meta[name='action-cable-" + name + "']");
+    if (element) {
+      return element.getAttribute("content");
+    }
+  }
   exports.Connection = Connection;
   exports.ConnectionMonitor = ConnectionMonitor;
   exports.Consumer = Consumer;
@@ -481,10 +507,10 @@
   exports.Subscription = Subscription;
   exports.Subscriptions = Subscriptions;
   exports.adapters = adapters;
+  exports.createWebSocketURL = createWebSocketURL;
   exports.logger = logger;
   exports.createConsumer = createConsumer;
   exports.getConfig = getConfig;
-  exports.createWebSocketURL = createWebSocketURL;
   Object.defineProperty(exports, "__esModule", {
     value: true
   });

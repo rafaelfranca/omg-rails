@@ -22,6 +22,12 @@ class Rails::Command::ServerCommandTest < ActiveSupport::TestCase
     assert_nil options[:server]
   end
 
+  def test_environment_option_is_properly_expanded
+    args = ["-e", "prod"]
+    options = parse_arguments(args)
+    assert_equal "production", options[:environment]
+  end
+
   def test_explicit_using_option
     args = ["-u", "thin"]
     options = parse_arguments(args)
@@ -30,6 +36,12 @@ class Rails::Command::ServerCommandTest < ActiveSupport::TestCase
 
   def test_using_server_mistype
     assert_match(/Could not find server "tin". Maybe you meant "thin"?/, run_command("--using", "tin"))
+  end
+
+  def test_using_server_mistype_without_suggestion
+    output = run_command("--using", "t")
+    assert_match(/Could not find server "t"/, output)
+    assert_no_match(/Maybe you meant/, output)
   end
 
   def test_using_positional_argument_deprecation
@@ -279,6 +291,8 @@ class Rails::Command::ServerCommandTest < ActiveSupport::TestCase
     end
 
     def parse_arguments(args = [])
-      Rails::Command::ServerCommand.new([], args).server_options
+      command = Rails::Command::ServerCommand.new([], args)
+      command.send(:extract_environment_option_from_argument)
+      command.server_options
     end
 end

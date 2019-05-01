@@ -22,8 +22,8 @@ module ActiveRecord
         def create_database(name, options = {})
           options = { encoding: "utf8" }.merge!(options.symbolize_keys)
 
-          option_string = options.inject("") do |memo, (key, value)|
-            memo += case key
+          option_string = options.each_with_object(+"") do |(key, value), memo|
+            memo << case key
                     when :owner
                       " OWNER = \"#{value}\""
                     when :template
@@ -287,7 +287,7 @@ module ActiveRecord
             quoted_sequence = quote_table_name(sequence)
             max_pk = query_value("SELECT MAX(#{quote_column_name pk}) FROM #{quote_table_name(table)}", "SCHEMA")
             if max_pk.nil?
-              if postgresql_version >= 100000
+              if database_version >= 100000
                 minvalue = query_value("SELECT seqmin FROM pg_sequence WHERE seqrelid = #{quote(quoted_sequence)}::regclass", "SCHEMA")
               else
                 minvalue = query_value("SELECT min_value FROM #{quoted_sequence}", "SCHEMA")
@@ -368,31 +368,6 @@ module ActiveRecord
           SQL
         end
 
-        def bulk_change_table(table_name, operations)
-          sql_fragments = []
-          non_combinable_operations = []
-
-          operations.each do |command, args|
-            table, arguments = args.shift, args
-            method = :"#{command}_for_alter"
-
-            if respond_to?(method, true)
-              sqls, procs = Array(send(method, table, *arguments)).partition { |v| v.is_a?(String) }
-              sql_fragments << sqls
-              non_combinable_operations.concat(procs)
-            else
-              execute "ALTER TABLE #{quote_table_name(table_name)} #{sql_fragments.join(", ")}" unless sql_fragments.empty?
-              non_combinable_operations.each(&:call)
-              sql_fragments = []
-              non_combinable_operations = []
-              send(command, table, *arguments)
-            end
-          end
-
-          execute "ALTER TABLE #{quote_table_name(table_name)} #{sql_fragments.join(", ")}" unless sql_fragments.empty?
-          non_combinable_operations.each(&:call)
-        end
-
         # Renames a table.
         # Also renames a table's primary key sequence if the sequence name exists and
         # matches the Active Record default.
@@ -443,14 +418,16 @@ module ActiveRecord
         end
 
         # Adds comment for given table column or drops it if +comment+ is a +nil+
-        def change_column_comment(table_name, column_name, comment) # :nodoc:
+        def change_column_comment(table_name, column_name, comment_or_changes) # :nodoc:
           clear_cache!
+          comment = extract_new_comment_value(comment_or_changes)
           execute "COMMENT ON COLUMN #{quote_table_name(table_name)}.#{quote_column_name(column_name)} IS #{quote(comment)}"
         end
 
         # Adds comment for given table or drops it if +comment+ is a +nil+
-        def change_table_comment(table_name, comment) # :nodoc:
+        def change_table_comment(table_name, comment_or_changes) # :nodoc:
           clear_cache!
+          comment = extract_new_comment_value(comment_or_changes)
           execute "COMMENT ON TABLE #{quote_table_name(table_name)} IS #{quote(comment)}"
         end
 
@@ -548,21 +525,21 @@ module ActiveRecord
               # The hard limit is 1GB, because of a 32-bit size field, and TOAST.
               case limit
               when nil, 0..0x3fffffff; super(type)
-              else raise(ActiveRecordError, "No binary type has byte size #{limit}.")
+              else raise ArgumentError, "No binary type has byte size #{limit}. The limit on binary can be at most 1GB - 1byte."
               end
             when "text"
               # PostgreSQL doesn't support limits on text columns.
               # The hard limit is 1GB, according to section 8.3 in the manual.
               case limit
               when nil, 0..0x3fffffff; super(type)
-              else raise(ActiveRecordError, "The limit on text can be at most 1GB - 1byte.")
+              else raise ArgumentError, "No text type has byte size #{limit}. The limit on text can be at most 1GB - 1byte."
               end
             when "integer"
               case limit
               when 1, 2; "smallint"
               when nil, 3, 4; "integer"
               when 5..8; "bigint"
-              else raise(ActiveRecordError, "No integer type has byte size #{limit}. Use a numeric with scale 0 instead.")
+              else raise ArgumentError, "No integer type has byte size #{limit}. Use a numeric with scale 0 instead."
               end
             else
               super
@@ -623,10 +600,10 @@ module ActiveRecord
         #   validate_foreign_key :accounts, name: :special_fk_name
         #
         # The +options+ hash accepts the same keys as SchemaStatements#add_foreign_key.
-        def validate_foreign_key(from_table, options_or_to_table = {})
+        def validate_foreign_key(from_table, to_table = nil, **options)
           return unless supports_validate_constraints?
 
-          fk_name_to_validate = foreign_key_for!(from_table, options_or_to_table).name
+          fk_name_to_validate = foreign_key_for!(from_table, to_table: to_table, **options).name
 
           validate_constraint from_table, fk_name_to_validate
         end
@@ -637,7 +614,7 @@ module ActiveRecord
           end
 
           def create_table_definition(*args)
-            PostgreSQL::TableDefinition.new(*args)
+            PostgreSQL::TableDefinition.new(self, *args)
           end
 
           def create_alter_table(name)
@@ -650,16 +627,19 @@ module ActiveRecord
             default_value = extract_value_from_default(default)
             default_function = extract_default_function(default_value, default)
 
-            PostgreSQLColumn.new(
+            if match = default_function&.match(/\Anextval\('"?(?<sequence_name>.+_(?<suffix>seq\d*))"?'::regclass\)\z/)
+              serial = sequence_name_from_parts(table_name, column_name, match[:suffix]) == match[:sequence_name]
+            end
+
+            PostgreSQL::Column.new(
               column_name,
               default_value,
               type_metadata,
               !notnull,
-              table_name,
               default_function,
-              collation,
+              collation: collation,
               comment: comment.presence,
-              max_identifier_length: max_identifier_length
+              serial: serial
             )
           end
 
@@ -672,7 +652,23 @@ module ActiveRecord
               precision: cast_type.precision,
               scale: cast_type.scale,
             )
-            PostgreSQLTypeMetadata.new(simple_type, oid: oid, fmod: fmod)
+            PostgreSQL::TypeMetadata.new(simple_type, oid: oid, fmod: fmod)
+          end
+
+          def sequence_name_from_parts(table_name, column_name, suffix)
+            over_length = [table_name, column_name, suffix].sum(&:length) + 2 - max_identifier_length
+
+            if over_length > 0
+              column_name_length = [(max_identifier_length - suffix.length - 2) / 2, column_name.length].min
+              over_length -= column_name.length - column_name_length
+              column_name = column_name[0, column_name_length - [over_length, 0].min]
+            end
+
+            if over_length > 0
+              table_name = table_name[0, table_name.length - over_length]
+            end
+
+            "#{table_name}_#{column_name}_#{suffix}"
           end
 
           def extract_foreign_key_action(specifier)
@@ -683,38 +679,20 @@ module ActiveRecord
             end
           end
 
-          def change_column_sql(table_name, column_name, type, options = {})
-            quoted_column_name = quote_column_name(column_name)
-            sql_type = type_to_sql(type, options)
-            sql = +"ALTER COLUMN #{quoted_column_name} TYPE #{sql_type}"
-            if options[:collation]
-              sql << " COLLATE \"#{options[:collation]}\""
-            end
-            if options[:using]
-              sql << " USING #{options[:using]}"
-            elsif options[:cast_as]
-              cast_as_type = type_to_sql(options[:cast_as], options)
-              sql << " USING CAST(#{quoted_column_name} AS #{cast_as_type})"
-            end
-
-            sql
-          end
-
           def add_column_for_alter(table_name, column_name, type, options = {})
             return super unless options.key?(:comment)
             [super, Proc.new { change_column_comment(table_name, column_name, options[:comment]) }]
           end
 
           def change_column_for_alter(table_name, column_name, type, options = {})
-            sqls = [change_column_sql(table_name, column_name, type, options)]
-            sqls << change_column_default_for_alter(table_name, column_name, options[:default]) if options.key?(:default)
-            sqls << change_column_null_for_alter(table_name, column_name, options[:null], options[:default]) if options.key?(:null)
+            td = create_table_definition(table_name)
+            cd = td.new_column_definition(column_name, type, options)
+            sqls = [schema_creation.accept(ChangeColumnDefinition.new(cd, column_name))]
             sqls << Proc.new { change_column_comment(table_name, column_name, options[:comment]) } if options.key?(:comment)
             sqls
           end
 
-          # Changes the default value of a table column.
-          def change_column_default_for_alter(table_name, column_name, default_or_changes) # :nodoc:
+          def change_column_default_for_alter(table_name, column_name, default_or_changes)
             column = column_for(table_name, column_name)
             return unless column
 
@@ -729,11 +707,17 @@ module ActiveRecord
             end
           end
 
-          def change_column_null_for_alter(table_name, column_name, null, default = nil) #:nodoc:
-            "ALTER #{quote_column_name(column_name)} #{null ? 'DROP' : 'SET'} NOT NULL"
+          def change_column_null_for_alter(table_name, column_name, null, default = nil)
+            "ALTER COLUMN #{quote_column_name(column_name)} #{null ? 'DROP' : 'SET'} NOT NULL"
           end
 
           def add_timestamps_for_alter(table_name, options = {})
+            options[:null] = false if options[:null].nil?
+
+            if !options.key?(:precision) && supports_datetime_with_precision?
+              options[:precision] = 6
+            end
+
             [add_column_for_alter(table_name, :created_at, :datetime, options), add_column_for_alter(table_name, :updated_at, :datetime, options)]
           end
 

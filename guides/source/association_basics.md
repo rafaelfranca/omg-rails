@@ -384,7 +384,7 @@ end
 The corresponding migration might look like this:
 
 ```ruby
-class CreateSuppliers < ActiveRecord::Migration[5.0]
+class CreateSuppliers < ActiveRecord::Migration[5.2]
   def change
     create_table :suppliers do |t|
       t.string :name
@@ -392,7 +392,7 @@ class CreateSuppliers < ActiveRecord::Migration[5.0]
     end
 
     create_table :accounts do |t|
-      t.integer :supplier_id
+      t.bigint  :supplier_id
       t.string  :account_number
       t.timestamps
     end
@@ -402,7 +402,7 @@ class CreateSuppliers < ActiveRecord::Migration[5.0]
 end
 ```
 
-NOTE: Using `t.integer :supplier_id` makes the foreign key naming obvious and explicit. In current versions of Rails, you can abstract away this implementation detail by using `t.references :supplier` instead.
+NOTE: Using `t.bigint :supplier_id` makes the foreign key naming obvious and explicit. In current versions of Rails, you can abstract away this implementation detail by using `t.references :supplier` instead.
 
 ### Choosing Between `has_many :through` and `has_and_belongs_to_many`
 
@@ -466,11 +466,11 @@ Similarly, you can retrieve `@product.pictures`.
 If you have an instance of the `Picture` model, you can get to its parent via `@picture.imageable`. To make this work, you need to declare both a foreign key column and a type column in the model that declares the polymorphic interface:
 
 ```ruby
-class CreatePictures < ActiveRecord::Migration[5.0]
+class CreatePictures < ActiveRecord::Migration[5.2]
   def change
     create_table :pictures do |t|
       t.string  :name
-      t.integer :imageable_id
+      t.bigint  :imageable_id
       t.string  :imageable_type
       t.timestamps
     end
@@ -619,11 +619,11 @@ end
 These need to be backed up by a migration to create the `assemblies_parts` table. This table should be created without a primary key:
 
 ```ruby
-class CreateAssembliesPartsJoinTable < ActiveRecord::Migration[5.0]
+class CreateAssembliesPartsJoinTable < ActiveRecord::Migration[5.2]
   def change
     create_table :assemblies_parts, id: false do |t|
-      t.integer :assembly_id
-      t.integer :part_id
+      t.bigint :assembly_id
+      t.bigint :part_id
     end
 
     add_index :assemblies_parts, :assembly_id
@@ -1231,6 +1231,7 @@ The `has_one` association supports these options:
 * `:source`
 * `:source_type`
 * `:through`
+* `:touch`
 * `:validate`
 
 ##### `:as`
@@ -1257,7 +1258,7 @@ Controls what happens to the associated object when its owner is destroyed:
 
 * `:destroy` causes the associated object to also be destroyed
 * `:delete` causes the associated object to be deleted directly from the database (so callbacks will not execute)
-* `:nullify` causes the foreign key to be set to `NULL`. Callbacks are not executed.
+* `:nullify` causes the foreign key to be set to `NULL`. Polymorphic type column is also nullified on polymorphic associations. Callbacks are not executed.
 * `:restrict_with_exception` causes an `ActiveRecord::DeleteRestrictionError` exception to be raised if there is an associated record
 * `:restrict_with_error` causes an error to be added to the owner if there is an associated object
 
@@ -1305,9 +1306,46 @@ The `:source` option specifies the source association name for a `has_one :throu
 
 The `:source_type` option specifies the source association type for a `has_one :through` association that proceeds through a polymorphic association.
 
+```ruby
+class Book < ApplicationRecord
+  has_one :format, polymorphic: true
+  has_one :dust_jacket, through: :format, source: :dust_jacket, source_type: "Hardback"
+end
+
+class Paperback < ApplicationRecord; end
+
+class Hardback < ApplicationRecord
+  has_one :dust_jacket
+end
+
+class DustJacket < ApplicationRecord; end
+```
+
 ##### `:through`
 
 The `:through` option specifies a join model through which to perform the query. `has_one :through` associations were discussed in detail [earlier in this guide](#the-has-one-through-association).
+
+##### `:touch`
+
+If you set the `:touch` option to `true`, then the `updated_at` or `updated_on` timestamp on the associated object will be set to the current time whenever this object is saved or destroyed:
+
+```ruby
+class Supplier < ApplicationRecord
+  has_one :account, touch: true
+end
+
+class Account < ApplicationRecord
+  belongs_to :supplier
+end
+```
+
+In this case, saving or destroying a supplier will update the timestamp on the associated account. You can also specify a particular timestamp attribute to update:
+
+```ruby
+class Supplier < ApplicationRecord
+  has_one :account, touch: :suppliers_updated_at
+end
+```
 
 ##### `:validate`
 
@@ -1544,7 +1582,7 @@ The `collection.size` method returns the number of objects in the collection.
 ##### `collection.find(...)`
 
 The `collection.find` method finds objects within the collection. It uses the same syntax and options as
-[`ActiveRecord::Base.find`](http://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-find).
+[`ActiveRecord::Base.find`](https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-find).
 
 ```ruby
 @available_book = @author.books.find(1)
@@ -1563,7 +1601,7 @@ The `collection.where` method finds objects within the collection based on the c
 
 The `collection.exists?` method checks whether an object meeting the supplied
 conditions exists in the collection. It uses the same syntax and options as
-[`ActiveRecord::Base.exists?`](http://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-exists-3F).
+[`ActiveRecord::Base.exists?`](https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-exists-3F).
 
 ##### `collection.build(attributes = {}, ...)`
 
@@ -1658,7 +1696,7 @@ Controls what happens to the associated objects when their owner is destroyed:
 
 * `:destroy` causes all the associated objects to also be destroyed
 * `:delete_all` causes all the associated objects to be deleted directly from the database (so callbacks will not execute)
-* `:nullify` causes the foreign keys to be set to `NULL`. Callbacks are not executed.
+* `:nullify` causes the foreign key to be set to `NULL`. Polymorphic type column is also nullified on polymorphic associations. Callbacks are not executed.
 * `:restrict_with_exception` causes an `ActiveRecord::DeleteRestrictionError` exception to be raised if there are any associated records
 * `:restrict_with_error` causes an error to be added to the owner if there are any associated objects
 
@@ -1716,6 +1754,20 @@ The `:source` option specifies the source association name for a `has_many :thro
 ##### `:source_type`
 
 The `:source_type` option specifies the source association type for a `has_many :through` association that proceeds through a polymorphic association.
+
+```ruby
+class Author < ApplicationRecord
+  has_many :books
+  has_many :paperbacks, through: :books, source: :format, source_type: "Paperback"
+end
+
+class Book < ApplicationRecord
+  has_one :format, polymorphic: true
+end
+
+class Hardback < ApplicationRecord; end
+class Paperback < ApplicationRecord; end
+```
 
 ##### `:through`
 
@@ -2077,7 +2129,7 @@ The `collection.size` method returns the number of objects in the collection.
 ##### `collection.find(...)`
 
 The `collection.find` method finds objects within the collection. It uses the same syntax and options as
-[`ActiveRecord::Base.find`](http://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-find).
+[`ActiveRecord::Base.find`](https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-find).
 
 ```ruby
 @assembly = @part.assemblies.find(1)
@@ -2095,7 +2147,7 @@ The `collection.where` method finds objects within the collection based on the c
 
 The `collection.exists?` method checks whether an object meeting the supplied
 conditions exists in the collection. It uses the same syntax and options as
-[`ActiveRecord::Base.exists?`](http://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-exists-3F).
+[`ActiveRecord::Base.exists?`](https://api.rubyonrails.org/classes/ActiveRecord/FinderMethods.html#method-i-exists-3F).
 
 ##### `collection.build(attributes = {})`
 
@@ -2349,6 +2401,17 @@ end
 ```
 
 If a `before_add` callback throws an exception, the object does not get added to the collection. Similarly, if a `before_remove` callback throws an exception, the object does not get removed from the collection.
+
+NOTE: These callbacks are called only when the associated objects are added or removed through the association collection:
+
+```ruby
+# Triggers `before_add` callback
+author.books << book
+author.books = [book, book2]
+
+# Does not trigger the `before_add` callback
+book.update(author_id: 1)
+```
 
 ### Association Extensions
 

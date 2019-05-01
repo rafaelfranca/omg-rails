@@ -115,6 +115,8 @@ class LoggingTest < ActiveSupport::TestCase
     perform_enqueued_jobs do
       LoggingJob.perform_later "Dummy"
       assert_match(/Performing LoggingJob \(Job ID: .*?\) from .*? with arguments:.*Dummy/, @logger.messages)
+
+      assert_match(/enqueued at /, @logger.messages)
       assert_match(/Dummy, here is it: Dummy/, @logger.messages)
       assert_match(/Performed LoggingJob \(Job ID: .*?\) from .*? in .*ms/, @logger.messages)
     end
@@ -187,11 +189,9 @@ class LoggingTest < ActiveSupport::TestCase
 
   def test_retry_stopped_logging_without_block
     perform_enqueued_jobs do
-      begin
-        RetryJob.perform_later "DefaultsError", 6
-      rescue DefaultsError
-        assert_match(/Stopped retrying RetryJob due to a DefaultsError, which reoccurred on \d+ attempts\./, @logger.messages)
-      end
+      RetryJob.perform_later "DefaultsError", 6
+    rescue DefaultsError
+      assert_match(/Stopped retrying RetryJob due to a DefaultsError, which reoccurred on \d+ attempts\./, @logger.messages)
     end
   end
 

@@ -142,7 +142,9 @@ module ActiveRecord
       end
 
       def for_each
-        databases = Rails.application.config.database_configuration
+        return {} unless defined?(Rails)
+
+        databases = Rails.application.config.load_database_yaml
         database_configs = ActiveRecord::DatabaseConfigurations.new(databases).configs_for(env_name: Rails.env)
 
         # if this is a single database application we don't want tasks for each primary database
@@ -150,6 +152,20 @@ module ActiveRecord
 
         database_configs.each do |db_config|
           yield db_config.spec_name
+        end
+      end
+
+      def raise_for_multi_db(environment = env, command:)
+        db_configs = ActiveRecord::Base.configurations.configs_for(env_name: environment)
+
+        if db_configs.count > 1
+          dbs_list = []
+
+          db_configs.each do |db|
+            dbs_list << "#{command}:#{db.spec_name}"
+          end
+
+          raise "You're using a multiple database application. To use `#{command}` you must run the namespaced task with a VERSION. Available tasks are #{dbs_list.to_sentence}."
         end
       end
 
@@ -180,6 +196,25 @@ module ActiveRecord
         each_current_configuration(environment) { |configuration|
           drop configuration
         }
+      end
+
+      def truncate_tables(configuration)
+        ActiveRecord::Base.connected_to(database: { truncation: configuration }) do
+          table_names = ActiveRecord::Base.connection.tables
+          table_names -= [
+            SchemaMigration.table_name,
+            InternalMetadata.table_name
+          ]
+
+          ActiveRecord::Base.connection.truncate_tables(*table_names)
+        end
+      end
+      private :truncate_tables
+
+      def truncate_all(environment = env)
+        ActiveRecord::Base.configurations.configs_for(env_name: environment).each do |db_config|
+          truncate_tables db_config.config
+        end
       end
 
       def migrate

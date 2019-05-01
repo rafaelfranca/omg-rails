@@ -9,13 +9,13 @@ Gem::Specification.new do |s|
   s.summary     = "Tools for creating, working with, and running Rails applications."
   s.description = "Rails internals: application bootup, plugins, generators, and rake tasks."
 
-  s.required_ruby_version = ">= 2.4.1"
+  s.required_ruby_version = ">= 2.5.0"
 
   s.license = "MIT"
 
   s.author   = "David Heinemeier Hansson"
   s.email    = "david@loudthinking.com"
-  s.homepage = "http://rubyonrails.org"
+  s.homepage = "https://rubyonrails.org"
 
   s.files        = Dir["CHANGELOG.md", "README.rdoc", "MIT-LICENSE", "RDOC_MAIN.rdoc", "exe/**/*", "lib/**/{*,.[a-z]*}"]
   s.require_path = "lib"

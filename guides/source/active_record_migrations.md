@@ -126,7 +126,7 @@ generator to handle making it for you:
 $ rails generate migration AddPartNumberToProducts
 ```
 
-This will create an empty but appropriately named migration:
+This will create an appropriately named empty migration:
 
 ```ruby
 class AddPartNumberToProducts < ActiveRecord::Migration[5.0]
@@ -135,9 +135,14 @@ class AddPartNumberToProducts < ActiveRecord::Migration[5.0]
 end
 ```
 
-If the migration name is of the form "AddXXXToYYY" or "RemoveXXXFromYYY" and is
-followed by a list of column names and types then a migration containing the
-appropriate `add_column` and `remove_column` statements will be created.
+This generator can do much more than append a timestamp to the file name.
+Based on naming conventions and additional (optional) arguments it can
+also start fleshing out the migration.
+
+If the migration name is of the form "AddColumnToTable" or
+"RemoveColumnFromTable" and is followed by a list of column names and
+types then a migration containing the appropriate `add_column` and
+`remove_column` statements will be created.
 
 ```bash
 $ rails generate migration AddPartNumberToProducts part_number:string
@@ -247,7 +252,7 @@ end
 ```
 
 This migration will create a `user_id` column and appropriate index.
-For more `add_reference` options, visit the [API documentation](http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/SchemaStatements.html#method-i-add_reference).
+For more `add_reference` options, visit the [API documentation](https://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/SchemaStatements.html#method-i-add_reference).
 
 There is also a generator which will produce join tables if `JoinTable` is part of the name:
 
@@ -460,7 +465,6 @@ number of digits after the decimal point.
 * `default`      Allows to set a default value on the column. Note that if you
 are using a dynamic value (such as a date), the default will only be calculated
 the first time (i.e. on the date the migration is applied).
-* `index`        Adds an index for the column.
 * `comment`      Adds a comment for the column.
 
 Some adapters may support additional options; see the adapter specific API docs
@@ -479,7 +483,7 @@ add_foreign_key :articles, :authors
 
 This adds a new foreign key to the `author_id` column of the `articles`
 table. The key references the `id` column of the `authors` table. If the
-column names can not be derived from the table names, you can use the
+column names cannot be derived from the table names, you can use the
 `:column` and `:primary_key` options.
 
 Rails will generate a name for every foreign key starting with
@@ -490,9 +494,6 @@ There is a `:name` option to specify a different name if needed.
 NOTE: Active Record only supports single column foreign keys. `execute` and
 `structure.sql` are required to use composite foreign keys. See
 [Schema Dumping and You](#schema-dumping-and-you).
-
-NOTE: The SQLite3 adapter doesn't support `add_foreign_key` since SQLite supports
-only [a limited subset of ALTER TABLE](https://www.sqlite.org/lang_altertable.html).
 
 Removing a foreign key is easy as well:
 
@@ -518,12 +519,12 @@ Product.connection.execute("UPDATE products SET price = 'free' WHERE 1=1")
 
 For more details and examples of individual methods, check the API documentation.
 In particular the documentation for
-[`ActiveRecord::ConnectionAdapters::SchemaStatements`](http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/SchemaStatements.html)
+[`ActiveRecord::ConnectionAdapters::SchemaStatements`](https://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/SchemaStatements.html)
 (which provides the methods available in the `change`, `up` and `down` methods),
-[`ActiveRecord::ConnectionAdapters::TableDefinition`](http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/TableDefinition.html)
+[`ActiveRecord::ConnectionAdapters::TableDefinition`](https://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/TableDefinition.html)
 (which provides the methods available on the object yielded by `create_table`)
 and
-[`ActiveRecord::ConnectionAdapters::Table`](http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/Table.html)
+[`ActiveRecord::ConnectionAdapters::Table`](https://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/Table.html)
 (which provides the methods available on the object yielded by `change_table`).
 
 ### Using the `change` Method
@@ -946,7 +947,7 @@ If `:ruby` is selected, then the schema is stored in `db/schema.rb`. If you look
 at this file you'll find that it looks an awful lot like one very big migration:
 
 ```ruby
-ActiveRecord::Schema.define(version: 20080906171750) do
+ActiveRecord::Schema.define(version: 2008_09_06_171750) do
   create_table "authors", force: true do |t|
     t.string   "name"
     t.datetime "created_at"

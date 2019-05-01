@@ -2,6 +2,7 @@
 
 require "active_record/migration/join_table"
 require "active_support/core_ext/string/access"
+require "active_support/deprecation"
 require "digest/sha2"
 
 module ActiveRecord
@@ -129,11 +130,11 @@ module ActiveRecord
       #   column_exists?(:suppliers, :name, :string, null: false)
       #   column_exists?(:suppliers, :tax, :decimal, precision: 8, scale: 2)
       #
-      def column_exists?(table_name, column_name, type = nil, options = {})
+      def column_exists?(table_name, column_name, type = nil, **options)
         column_name = column_name.to_s
         checks = []
         checks << lambda { |c| c.name == column_name }
-        checks << lambda { |c| c.type == type } if type
+        checks << lambda { |c| c.type == type.to_sym rescue nil } if type
         column_options_keys.each do |attr|
           checks << lambda { |c| c.send(attr) == options[attr] } if options.key?(attr)
         end
@@ -583,7 +584,7 @@ module ActiveRecord
       #  # Defines a column with a database-specific type.
       #  add_column(:shapes, :triangle, 'polygon')
       #  # ALTER TABLE "shapes" ADD "triangle" polygon
-      def add_column(table_name, column_name, type, options = {})
+      def add_column(table_name, column_name, type, **options)
         at = create_alter_table table_name
         at.add_column(column_name, type, options)
         execute schema_creation.accept at
@@ -769,6 +770,17 @@ module ActiveRecord
       #   CREATE FULLTEXT INDEX index_developers_on_name ON developers (name) -- MySQL
       #
       # Note: only supported by MySQL.
+      #
+      # ====== Creating an index with a specific algorithm
+      #
+      #  add_index(:developers, :name, algorithm: :concurrently)
+      #  # CREATE INDEX CONCURRENTLY developers_on_name on developers (name)
+      #
+      # Note: only supported by PostgreSQL.
+      #
+      # Concurrently adding an index is not supported in a transaction.
+      #
+      # For more information see the {"Transactional Migrations" section}[rdoc-ref:Migration].
       def add_index(table_name, column_name, options = {})
         index_name, index_type, index_columns, index_options = add_index_options(table_name, column_name, options)
         execute "CREATE #{index_type} INDEX #{quote_column_name(index_name)} ON #{quote_table_name(table_name)} (#{index_columns})#{index_options}"
@@ -792,6 +804,15 @@ module ActiveRecord
       #
       #   remove_index :accounts, name: :by_branch_party
       #
+      # Removes the index named +by_branch_party+ in the +accounts+ table +concurrently+.
+      #
+      #   remove_index :accounts, name: :by_branch_party, algorithm: :concurrently
+      #
+      # Note: only supported by PostgreSQL.
+      #
+      # Concurrently removing an index is not supported in a transaction.
+      #
+      # For more information see the {"Transactional Migrations" section}[rdoc-ref:Migration].
       def remove_index(table_name, options = {})
         index_name = index_name_for_remove(table_name, options)
         execute "DROP INDEX #{quote_column_name(index_name)} ON #{quote_table_name(table_name)}"
@@ -851,7 +872,7 @@ module ActiveRecord
       # [<tt>:null</tt>]
       #   Whether the column allows nulls. Defaults to true.
       #
-      # ====== Create a user_id bigint column without a index
+      # ====== Create a user_id bigint column without an index
       #
       #   add_reference(:products, :user, index: false)
       #
@@ -965,7 +986,7 @@ module ActiveRecord
       # [<tt>:on_update</tt>]
       #   Action that happens <tt>ON UPDATE</tt>. Valid values are +:nullify+, +:cascade+ and +:restrict+
       # [<tt>:validate</tt>]
-      #   (Postgres only) Specify whether or not the constraint should be validated. Defaults to +true+.
+      #   (PostgreSQL only) Specify whether or not the constraint should be validated. Defaults to +true+.
       def add_foreign_key(from_table, to_table, options = {})
         return unless supports_foreign_keys?
 
@@ -1001,10 +1022,10 @@ module ActiveRecord
       # with an addition of
       # [<tt>:to_table</tt>]
       #   The name of the table that contains the referenced primary key.
-      def remove_foreign_key(from_table, options_or_to_table = {})
+      def remove_foreign_key(from_table, to_table = nil, **options)
         return unless supports_foreign_keys?
 
-        fk_name_to_delete = foreign_key_for!(from_table, options_or_to_table).name
+        fk_name_to_delete = foreign_key_for!(from_table, to_table: to_table, **options).name
 
         at = create_alter_table from_table
         at.drop_foreign_key fk_name_to_delete
@@ -1023,14 +1044,12 @@ module ActiveRecord
       #   # Checks to see if a foreign key with a custom name exists.
       #   foreign_key_exists?(:accounts, name: "special_fk_name")
       #
-      def foreign_key_exists?(from_table, options_or_to_table = {})
-        foreign_key_for(from_table, options_or_to_table).present?
+      def foreign_key_exists?(from_table, to_table = nil, **options)
+        foreign_key_for(from_table, to_table: to_table, **options).present?
       end
 
       def foreign_key_column_for(table_name) # :nodoc:
-        prefix = Base.table_name_prefix
-        suffix = Base.table_name_suffix
-        name = table_name.to_s =~ /#{prefix}(.+)#{suffix}/ ? $1 : table_name.to_s
+        name = strip_table_name_prefix_and_suffix(table_name)
         "#{name.singularize}_id"
       end
 
@@ -1050,15 +1069,18 @@ module ActiveRecord
         { primary_key: true }
       end
 
-      def assume_migrated_upto_version(version, migrations_paths)
-        migrations_paths = Array(migrations_paths)
+      def assume_migrated_upto_version(version, migrations_paths = nil)
+        unless migrations_paths.nil?
+          ActiveSupport::Deprecation.warn(<<~MSG.squish)
+            Passing migrations_paths to #assume_migrated_upto_version is deprecated and will be removed in Rails 6.1.
+          MSG
+        end
+
         version = version.to_i
         sm_table = quote_table_name(ActiveRecord::SchemaMigration.table_name)
 
-        migrated = ActiveRecord::SchemaMigration.all_versions.map(&:to_i)
-        versions = migration_context.migration_files.map do |file|
-          migration_context.parse_migration_filename(file).first.to_i
-        end
+        migrated = migration_context.get_all_versions
+        versions = migration_context.migrations.map(&:version)
 
         unless migrated.include?(version)
           execute "INSERT INTO #{sm_table} (version) VALUES (#{quote(version)})"
@@ -1095,7 +1117,7 @@ module ActiveRecord
             if (0..6) === precision
               column_type_sql << "(#{precision})"
             else
-              raise(ActiveRecordError, "No #{native[:name]} type has precision of #{precision}. The allowed range of precision is from 0 to 6")
+              raise ArgumentError, "No #{native[:name]} type has precision of #{precision}. The allowed range of precision is from 0 to 6"
             end
           elsif (type != :primary_key) && (limit ||= native.is_a?(Hash) && native[:limit])
             column_type_sql << "(#{limit})"
@@ -1124,6 +1146,10 @@ module ActiveRecord
       #
       def add_timestamps(table_name, options = {})
         options[:null] = false if options[:null].nil?
+
+        if !options.key?(:precision) && supports_datetime_with_precision?
+          options[:precision] = 6
+        end
 
         add_column table_name, :created_at, :datetime, options
         add_column table_name, :updated_at, :datetime, options
@@ -1179,12 +1205,22 @@ module ActiveRecord
       end
 
       # Changes the comment for a table or removes it if +nil+.
-      def change_table_comment(table_name, comment)
+      #
+      # Passing a hash containing +:from+ and +:to+ will make this change
+      # reversible in migration:
+      #
+      #   change_table_comment(:posts, from: "old_comment", to: "new_comment")
+      def change_table_comment(table_name, comment_or_changes)
         raise NotImplementedError, "#{self.class} does not support changing table comments"
       end
 
       # Changes the comment for a column or removes it if +nil+.
-      def change_column_comment(table_name, column_name, comment)
+      #
+      # Passing a hash containing +:from+ and +:to+ will make this change
+      # reversible in migration:
+      #
+      #   change_column_comment(:posts, :state, from: "old_comment", to: "new_comment")
+      def change_column_comment(table_name, column_name, comment_or_changes)
         raise NotImplementedError, "#{self.class} does not support changing column comments"
       end
 
@@ -1286,7 +1322,7 @@ module ActiveRecord
         end
 
         def create_table_definition(*args)
-          TableDefinition.new(*args)
+          TableDefinition.new(self, *args)
         end
 
         def create_alter_table(name)
@@ -1320,6 +1356,12 @@ module ActiveRecord
           { column: column_names }
         end
 
+        def strip_table_name_prefix_and_suffix(table_name)
+          prefix = Base.table_name_prefix
+          suffix = Base.table_name_suffix
+          table_name.to_s =~ /#{prefix}(.+)#{suffix}/ ? $1 : table_name.to_s
+        end
+
         def foreign_key_name(table_name, options)
           options.fetch(:name) do
             identifier = "#{table_name}_#{options.fetch(:column)}_fk"
@@ -1329,14 +1371,14 @@ module ActiveRecord
           end
         end
 
-        def foreign_key_for(from_table, options_or_to_table = {})
+        def foreign_key_for(from_table, **options)
           return unless supports_foreign_keys?
-          foreign_keys(from_table).detect { |fk| fk.defined_for? options_or_to_table }
+          foreign_keys(from_table).detect { |fk| fk.defined_for?(options) }
         end
 
-        def foreign_key_for!(from_table, options_or_to_table = {})
-          foreign_key_for(from_table, options_or_to_table) || \
-            raise(ArgumentError, "Table '#{from_table}' has no foreign key for #{options_or_to_table}")
+        def foreign_key_for!(from_table, to_table: nil, **options)
+          foreign_key_for(from_table, to_table: to_table, **options) ||
+            raise(ArgumentError, "Table '#{from_table}' has no foreign key for #{to_table || options}")
         end
 
         def extract_foreign_key_action(specifier)
@@ -1362,9 +1404,35 @@ module ActiveRecord
             default_or_changes
           end
         end
+        alias :extract_new_comment_value :extract_new_default_value
 
         def can_remove_index_by_name?(options)
           options.is_a?(Hash) && options.key?(:name) && options.except(:name, :algorithm).empty?
+        end
+
+        def bulk_change_table(table_name, operations)
+          sql_fragments = []
+          non_combinable_operations = []
+
+          operations.each do |command, args|
+            table, arguments = args.shift, args
+            method = :"#{command}_for_alter"
+
+            if respond_to?(method, true)
+              sqls, procs = Array(send(method, table, *arguments)).partition { |v| v.is_a?(String) }
+              sql_fragments << sqls
+              non_combinable_operations.concat(procs)
+            else
+              execute "ALTER TABLE #{quote_table_name(table_name)} #{sql_fragments.join(", ")}" unless sql_fragments.empty?
+              non_combinable_operations.each(&:call)
+              sql_fragments = []
+              non_combinable_operations = []
+              send(command, table, *arguments)
+            end
+          end
+
+          execute "ALTER TABLE #{quote_table_name(table_name)} #{sql_fragments.join(", ")}" unless sql_fragments.empty?
+          non_combinable_operations.each(&:call)
         end
 
         def add_column_for_alter(table_name, column_name, type, options = {})

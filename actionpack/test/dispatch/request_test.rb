@@ -411,7 +411,7 @@ class RequestPath < BaseRequestTest
     assert_equal "/foo?bar", path
   end
 
-  test "original_url returns url built using ORIGINAL_FULLPATH" do
+  test "original_url returns URL built using ORIGINAL_FULLPATH" do
     request = stub_request("ORIGINAL_FULLPATH" => "/foo?bar",
                            "HTTP_HOST"         => "example.org",
                            "rack.url_scheme"   => "http")
@@ -763,7 +763,6 @@ class RequestMethod < BaseRequestTest
 
   test "post uneffected by local inflections" do
     existing_acronyms = ActiveSupport::Inflector.inflections.acronyms.dup
-    assert_deprecated { ActiveSupport::Inflector.inflections.acronym_regex.dup }
     begin
       ActiveSupport::Inflector.inflections do |inflect|
         inflect.acronym "POS"

@@ -40,6 +40,9 @@ module ActiveJob
     # Timezone to be used during the job.
     attr_accessor :timezone
 
+    # Track when a job was enqueued
+    attr_accessor :enqueued_at
+
     # These methods will be included into any Active Job object, adding
     # helpers for de/serialization and creation of job instances.
     module ClassMethods
@@ -81,7 +84,7 @@ module ActiveJob
       @queue_name = self.class.queue_name
       @priority   = self.class.priority
       @executions = 0
-      @exception_executions = Hash.new(0)
+      @exception_executions = {}
     end
 
     # Returns a hash with the job data that can safely be passed to the
@@ -97,7 +100,8 @@ module ActiveJob
         "executions" => executions,
         "exception_executions" => exception_executions,
         "locale"     => I18n.locale.to_s,
-        "timezone"   => Time.zone.try(:name)
+        "timezone"   => Time.zone.try(:name),
+        "enqueued_at" => Time.now.utc.iso8601
       }
     end
 
@@ -137,6 +141,7 @@ module ActiveJob
       self.exception_executions = job_data["exception_executions"]
       self.locale               = job_data["locale"] || I18n.locale.to_s
       self.timezone             = job_data["timezone"] || Time.zone.try(:name)
+      self.enqueued_at          = job_data["enqueued_at"]
     end
 
     private

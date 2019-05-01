@@ -9,13 +9,13 @@ Gem::Specification.new do |s|
   s.summary     = "Job framework with pluggable queues."
   s.description = "Declare job classes that can be run by a variety of queuing backends."
 
-  s.required_ruby_version = ">= 2.4.1"
+  s.required_ruby_version = ">= 2.5.0"
 
   s.license = "MIT"
 
   s.author   = "David Heinemeier Hansson"
   s.email    = "david@loudthinking.com"
-  s.homepage = "http://rubyonrails.org"
+  s.homepage = "https://rubyonrails.org"
 
   s.files        = Dir["CHANGELOG.md", "MIT-LICENSE", "README.md", "lib/**/*"]
   s.require_path = "lib"

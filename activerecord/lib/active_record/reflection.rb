@@ -21,12 +21,12 @@ module ActiveRecord
 
       def add_reflection(ar, name, reflection)
         ar.clear_reflections_cache
-        name = name.to_s
+        name = -name.to_s
         ar._reflections = ar._reflections.except(name).merge!(name => reflection)
       end
 
       def add_aggregate_reflection(ar, name, reflection)
-        ar.aggregate_reflections = ar.aggregate_reflections.merge(name.to_s => reflection)
+        ar.aggregate_reflections = ar.aggregate_reflections.merge(-name.to_s => reflection)
       end
 
       private
@@ -178,26 +178,22 @@ module ActiveRecord
         scope ? [scope] : []
       end
 
-      def build_join_constraint(table, foreign_table)
-        key         = join_keys.key
-        foreign_key = join_keys.foreign_key
-
-        constraint = table[key].eq(foreign_table[foreign_key])
-
-        if klass.finder_needs_type_condition?
-          table.create_and([constraint, klass.send(:type_condition, table)])
-        else
-          constraint
-        end
-      end
-
-      def join_scope(table, foreign_klass)
+      def join_scope(table, foreign_table, foreign_klass)
         predicate_builder = predicate_builder(table)
         scope_chain_items = join_scopes(table, predicate_builder)
         klass_scope       = klass_join_scope(table, predicate_builder)
 
+        key         = join_keys.key
+        foreign_key = join_keys.foreign_key
+
+        klass_scope.where!(table[key].eq(foreign_table[foreign_key]))
+
         if type
           klass_scope.where!(type => foreign_klass.polymorphic_name)
+        end
+
+        if klass.finder_needs_type_condition?
+          klass_scope.where!(klass.send(:type_condition, table))
         end
 
         scope_chain_items.inject(klass_scope, &:merge!)
@@ -481,7 +477,7 @@ module ActiveRecord
       def check_preloadable!
         return unless scope
 
-        if scope.arity > 0
+        unless scope.arity == 0
           raise ArgumentError, <<-MSG.squish
             The association scope '#{name}' is instance dependent (the scope
             block takes an argument). Preloading instance dependent scopes is
@@ -612,21 +608,9 @@ module ActiveRecord
 
         # returns either +nil+ or the inverse association name that it finds.
         def automatic_inverse_of
-          return unless can_find_inverse_of_automatically?(self)
+          if can_find_inverse_of_automatically?(self)
+            inverse_name = ActiveSupport::Inflector.underscore(options[:as] || active_record.name.demodulize).to_sym
 
-          inverse_name_candidates =
-            if options[:as]
-              [options[:as]]
-            else
-              active_record_name = active_record.name.demodulize
-              [active_record_name, ActiveSupport::Inflector.pluralize(active_record_name)]
-            end
-
-          inverse_name_candidates.map! do |candidate|
-            ActiveSupport::Inflector.underscore(candidate).to_sym
-          end
-
-          inverse_name_candidates.detect do |inverse_name|
             begin
               reflection = klass._reflect_on_association(inverse_name)
             rescue NameError
@@ -635,7 +619,9 @@ module ActiveRecord
               reflection = false
             end
 
-            valid_inverse_reflection?(reflection)
+            if valid_inverse_reflection?(reflection)
+              return inverse_name
+            end
           end
         end
 

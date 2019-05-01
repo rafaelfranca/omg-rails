@@ -6,6 +6,7 @@ require "active_record/connection_adapters/sql_type_metadata"
 require "active_record/connection_adapters/abstract/schema_dumper"
 require "active_record/connection_adapters/abstract/schema_creation"
 require "active_support/concurrency/load_interlock_aware_monitor"
+require "active_support/deprecation"
 require "arel/collectors/bind"
 require "arel/collectors/composite"
 require "arel/collectors/sql_string"
@@ -76,8 +77,8 @@ module ActiveRecord
 
       SIMPLE_INT = /\A\d+\z/
 
-      attr_accessor :visitor, :pool, :prevent_writes
-      attr_reader :schema_cache, :owner, :logger, :prepared_statements, :lock
+      attr_accessor :pool
+      attr_reader :schema_cache, :visitor, :owner, :logger, :lock, :prepared_statements, :prevent_writes
       alias :in_use? :owner
 
       set_callback :checkin, :after, :enable_lazy_transactions!
@@ -101,7 +102,7 @@ module ActiveRecord
       end
 
       def self.build_read_query_regexp(*parts) # :nodoc:
-        parts = parts.map { |part| /\A\s*#{part}/i }
+        parts = parts.map { |part| /\A[\(\s]*#{part}/i }
         Regexp.union(*parts)
       end
 
@@ -117,7 +118,9 @@ module ActiveRecord
         @idle_since          = Concurrent.monotonic_time
         @schema_cache        = SchemaCache.new self
         @quoted_column_names, @quoted_table_names = {}, {}
+        @prevent_writes = false
         @visitor = arel_visitor
+        @statements = build_statement_pool
         @lock = ActiveSupport::Concurrency::LoadInterlockAwareMonitor.new
 
         if self.class.type_cast_config_to_boolean(config.fetch(:prepared_statements) { true })
@@ -130,8 +133,6 @@ module ActiveRecord
         @advisory_locks_enabled = self.class.type_cast_config_to_boolean(
           config.fetch(:advisory_locks, true)
         )
-
-        check_version
       end
 
       def replica?
@@ -146,17 +147,16 @@ module ActiveRecord
         replica? || prevent_writes
       end
 
-      # Prevent writing to the database  regardless of role.
+      # Prevent writing to the database regardless of role.
       #
       # In some cases you may want to prevent writes to the database
       # even if you are on a database that can write. `while_preventing_writes`
       # will prevent writes to the database for the duration of the block.
       def while_preventing_writes
-        original = self.prevent_writes
-        self.prevent_writes = true
+        original, @prevent_writes = @prevent_writes, true
         yield
       ensure
-        self.prevent_writes = original
+        @prevent_writes = original
       end
 
       def migrations_paths # :nodoc:
@@ -170,8 +170,11 @@ module ActiveRecord
       class Version
         include Comparable
 
-        def initialize(version_string)
+        attr_reader :full_version_string
+
+        def initialize(version_string, full_version_string = nil)
           @version = version_string.split(".").map(&:to_i)
+          @full_version_string = full_version_string
         end
 
         def <=>(version_string)
@@ -334,6 +337,7 @@ module ActiveRecord
       def supports_foreign_keys_in_create?
         supports_foreign_keys?
       end
+      deprecate :supports_foreign_keys_in_create?
 
       # Does this adapter support views?
       def supports_views?
@@ -381,7 +385,28 @@ module ActiveRecord
         false
       end
 
+      # Does this adapter support optimizer hints?
+      def supports_optimizer_hints?
+        false
+      end
+
       def supports_lazy_transactions?
+        false
+      end
+
+      def supports_insert_returning?
+        false
+      end
+
+      def supports_insert_on_duplicate_skip?
+        false
+      end
+
+      def supports_insert_on_duplicate_update?
+        false
+      end
+
+      def supports_insert_conflict_target?
         false
       end
 
@@ -474,11 +499,9 @@ module ActiveRecord
         # this should be overridden by concrete adapters
       end
 
-      ###
-      # Clear any caching the database adapter may be doing, for example
-      # clearing the prepared statement cache. This is database specific.
+      # Clear any caching the database adapter may be doing.
       def clear_cache!
-        # this should be overridden by concrete adapters
+        @lock.synchronize { @statements.clear } if @statements
       end
 
       # Returns true if its required to reload the connection between requests for development mode.
@@ -504,15 +527,21 @@ module ActiveRecord
         @connection
       end
 
-      def case_sensitive_comparison(table, attribute, column, value) # :nodoc:
-        table[attribute].eq(value)
+      def default_uniqueness_comparison(attribute, value, klass) # :nodoc:
+        attribute.eq(value)
       end
 
-      def case_insensitive_comparison(table, attribute, column, value) # :nodoc:
+      def case_sensitive_comparison(attribute, value) # :nodoc:
+        attribute.eq(value)
+      end
+
+      def case_insensitive_comparison(attribute, value) # :nodoc:
+        column = column_for_attribute(attribute)
+
         if can_perform_case_insensitive_comparison_for?(column)
-          table[attribute].lower.eq(table.lower(value))
+          attribute.lower.eq(attribute.relation.lower(value))
         else
-          table[attribute].eq(value)
+          attribute.eq(value)
         end
       end
 
@@ -534,9 +563,30 @@ module ActiveRecord
         index.using.nil?
       end
 
-      private
-        def check_version
+      # Called by ActiveRecord::InsertAll,
+      # Passed an instance of ActiveRecord::InsertAll::Builder,
+      # This method implements standard bulk inserts for all databases, but
+      # should be overridden by adapters to implement common features with
+      # non-standard syntax like handling duplicates or returning values.
+      def build_insert_sql(insert) # :nodoc:
+        if insert.skip_duplicates? || insert.update_duplicates?
+          raise NotImplementedError, "#{self.class} should define `build_insert_sql` to implement adapter-specific logic for handling duplicates during INSERT"
         end
+
+        "INSERT #{insert.into} #{insert.values_list}"
+      end
+
+      def get_database_version # :nodoc:
+      end
+
+      def database_version # :nodoc:
+        schema_cache.database_version
+      end
+
+      def check_version # :nodoc:
+      end
+
+      private
 
         def type_map
           @type_map ||= Type::TypeMap.new.tap do |mapping|
@@ -631,13 +681,11 @@ module ActiveRecord
             statement_name:    statement_name,
             connection_id:     object_id,
             connection:        self) do
-            begin
-              @lock.synchronize do
-                yield
-              end
-            rescue => e
-              raise translate_exception_class(e, sql, binds)
+            @lock.synchronize do
+              yield
             end
+          rescue => e
+            raise translate_exception_class(e, sql, binds)
           end
         end
 
@@ -661,6 +709,11 @@ module ActiveRecord
             raise(ActiveRecordError, "No such column: #{table_name}.#{column_name}")
         end
 
+        def column_for_attribute(attribute)
+          table_name = attribute.relation.name
+          schema_cache.columns_hash(table_name)[attribute.name.to_s]
+        end
+
         def collector
           if prepared_statements
             Arel::Collectors::Composite.new(
@@ -677,6 +730,9 @@ module ActiveRecord
 
         def arel_visitor
           Arel::Visitors::ToSql.new(self)
+        end
+
+        def build_statement_pool
         end
     end
   end

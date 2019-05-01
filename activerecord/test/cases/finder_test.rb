@@ -3,6 +3,7 @@
 require "cases/helper"
 require "models/post"
 require "models/author"
+require "models/account"
 require "models/categorization"
 require "models/comment"
 require "models/company"
@@ -21,6 +22,7 @@ require "models/dog"
 require "models/car"
 require "models/tyre"
 require "models/subscriber"
+require "support/stubs/strong_parameters"
 
 class FinderTest < ActiveRecord::TestCase
   fixtures :companies, :topics, :entrants, :developers, :developers_projects, :posts, :comments, :accounts, :authors, :author_addresses, :customers, :categories, :categorizations, :cars
@@ -224,6 +226,18 @@ class FinderTest < ActiveRecord::TestCase
     assert_equal true, Subscriber.exists?("   ")
   end
 
+  def test_exists_with_strong_parameters
+    assert_equal false, Subscriber.exists?(ProtectedParams.new(nick: "foo").permit!)
+
+    Subscriber.create!(nick: "foo")
+
+    assert_equal true, Subscriber.exists?(ProtectedParams.new(nick: "foo").permit!)
+
+    assert_raises(ActiveModel::ForbiddenAttributesError) do
+      Subscriber.exists?(ProtectedParams.new(nick: "foo"))
+    end
+  end
+
   def test_exists_passing_active_record_object_is_not_permitted
     assert_raises(ArgumentError) do
       Topic.exists?(Topic.new)
@@ -258,6 +272,16 @@ class FinderTest < ActiveRecord::TestCase
     assert_equal true, Topic.exists?({})
   end
 
+  def test_exists_with_distinct_and_offset_and_joins
+    assert Post.left_joins(:comments).distinct.offset(10).exists?
+    assert_not Post.left_joins(:comments).distinct.offset(11).exists?
+  end
+
+  def test_exists_with_distinct_and_offset_and_select
+    assert Post.select(:body).distinct.offset(3).exists?
+    assert_not Post.select(:body).distinct.offset(4).exists?
+  end
+
   # Ensure +exists?+ runs without an error by excluding distinct value.
   # See https://github.com/rails/rails/pull/26981.
   def test_exists_with_order_and_distinct
@@ -267,6 +291,17 @@ class FinderTest < ActiveRecord::TestCase
   # Ensure +exists?+ runs without an error by excluding order value.
   def test_exists_with_order
     assert_equal true, Topic.order(Arel.sql("invalid sql here")).exists?
+  end
+
+  def test_exists_with_large_number
+    assert_equal true, Topic.where(id: [1, 9223372036854775808]).exists?
+    assert_equal true, Topic.where(id: 1..9223372036854775808).exists?
+    assert_equal true, Topic.where(id: -9223372036854775809..9223372036854775808).exists?
+    assert_equal false, Topic.where(id: 9223372036854775808..9223372036854775809).exists?
+    assert_equal false, Topic.where(id: -9223372036854775810..-9223372036854775809).exists?
+    assert_equal false, Topic.where(id: 9223372036854775808..1).exists?
+    assert_equal true, Topic.where(id: 1).or(Topic.where(id: 9223372036854775808)).exists?
+    assert_equal true, Topic.where.not(id: 9223372036854775808).exists?
   end
 
   def test_exists_with_joins
@@ -370,16 +405,19 @@ class FinderTest < ActiveRecord::TestCase
     assert_raises(ActiveRecord::RecordNotFound) do
       Topic.where("1=1").find(9999999999999999999999999999999)
     end
+    assert_equal topics(:first), Topic.where(id: [1, 9999999999999999999999999999999]).find(1)
   end
 
   def test_find_by_on_relation_with_large_number
     assert_nil Topic.where("1=1").find_by(id: 9999999999999999999999999999999)
+    assert_equal topics(:first), Topic.where(id: [1, 9999999999999999999999999999999]).find_by(id: 1)
   end
 
   def test_find_by_bang_on_relation_with_large_number
     assert_raises(ActiveRecord::RecordNotFound) do
       Topic.where("1=1").find_by!(id: 9999999999999999999999999999999)
     end
+    assert_equal topics(:first), Topic.where(id: [1, 9999999999999999999999999999999]).find_by!(id: 1)
   end
 
   def test_find_an_empty_array
@@ -424,14 +462,14 @@ class FinderTest < ActiveRecord::TestCase
   end
 
   def test_find_by_association_subquery
-    author = authors(:david)
-    assert_equal author.post, Post.find_by(author: Author.where(id: author))
-    assert_equal author.post, Post.find_by(author_id: Author.where(id: author))
+    firm = companies(:first_firm)
+    assert_equal firm.account, Account.find_by(firm: Firm.where(id: firm))
+    assert_equal firm.account, Account.find_by(firm_id: Firm.where(id: firm))
   end
 
   def test_find_by_and_where_consistency_with_active_record_instance
-    author = authors(:david)
-    assert_equal Post.where(author_id: author).take, Post.find_by(author_id: author)
+    firm = companies(:first_firm)
+    assert_equal Account.where(firm_id: firm).take, Account.find_by(firm_id: firm)
   end
 
   def test_take
@@ -938,6 +976,7 @@ class FinderTest < ActiveRecord::TestCase
     assert_kind_of Money, zaphod_balance
     found_customers = Customer.where(balance: [david_balance, zaphod_balance])
     assert_equal [customers(:david), customers(:zaphod)], found_customers.sort_by(&:id)
+    assert_equal Customer.where(balance: [david_balance.amount, zaphod_balance.amount]).to_sql, found_customers.to_sql
   end
 
   def test_hash_condition_find_with_aggregate_attribute_having_same_name_as_field_and_key_value_being_aggregate
@@ -973,6 +1012,24 @@ class FinderTest < ActiveRecord::TestCase
     assert_kind_of Address, address
     found_customer = Customer.where(address: address, name: customers(:david).name).first
     assert_equal customers(:david), found_customer
+  end
+
+  def test_hash_condition_find_nil_with_aggregate_having_one_mapping
+    assert_nil customers(:zaphod).gps_location
+    found_customer = Customer.where(gps_location: nil, name: customers(:zaphod).name).first
+    assert_equal customers(:zaphod), found_customer
+  end
+
+  def test_hash_condition_find_nil_with_aggregate_having_multiple_mappings
+    customers(:david).update(address: nil)
+    assert_nil customers(:david).address_street
+    assert_nil customers(:david).address_city
+    found_customer = Customer.where(address: nil, name: customers(:david).name).first
+    assert_equal customers(:david), found_customer
+  end
+
+  def test_hash_condition_find_empty_array_with_aggregate_having_multiple_mappings
+    assert_nil Customer.where(address: []).first
   end
 
   def test_condition_utc_time_interpolation_with_default_timezone_local
@@ -1116,7 +1173,7 @@ class FinderTest < ActiveRecord::TestCase
 
   def test_dynamic_finder_on_one_attribute_with_conditions_returns_same_results_after_caching
     # ensure this test can run independently of order
-    class << Account; self; end.send(:remove_method, :find_by_credit_limit) if Account.public_methods.include?(:find_by_credit_limit)
+    Account.singleton_class.remove_method :find_by_credit_limit if Account.public_methods.include?(:find_by_credit_limit)
     a = Account.where("firm_id = ?", 6).find_by_credit_limit(50)
     assert_equal a, Account.where("firm_id = ?", 6).find_by_credit_limit(50) # find_by_credit_limit has been cached
   end

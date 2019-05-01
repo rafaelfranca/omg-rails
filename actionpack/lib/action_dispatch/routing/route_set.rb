@@ -90,11 +90,11 @@ module ActionDispatch
 
         def clear!
           @path_helpers.each do |helper|
-            @path_helpers_module.send :remove_method, helper
+            @path_helpers_module.remove_method helper
           end
 
           @url_helpers.each do |helper|
-            @url_helpers_module.send  :remove_method, helper
+            @url_helpers_module.remove_method helper
           end
 
           @routes.clear
@@ -108,8 +108,8 @@ module ActionDispatch
           url_name  = :"#{name}_url"
 
           if routes.key? key
-            @path_helpers_module.send :undef_method, path_name
-            @url_helpers_module.send  :undef_method, url_name
+            @path_helpers_module.undef_method path_name
+            @url_helpers_module.undef_method url_name
           end
           routes[key] = route
           define_url_helper @path_helpers_module, route, path_name, route.defaults, name, PATH
@@ -317,23 +317,21 @@ module ActionDispatch
           #
           def define_url_helper(mod, route, name, opts, route_key, url_strategy)
             helper = UrlHelper.create(route, opts, route_key, url_strategy)
-            mod.module_eval do
-              define_method(name) do |*args|
-                last = args.last
-                options = \
-                  case last
-                  when Hash
-                    args.pop
-                  when ActionController::Parameters
-                    args.pop.to_h
-                  end
-                helper.call self, args, options
-              end
+            mod.define_method(name) do |*args|
+              last = args.last
+              options = \
+                case last
+                when Hash
+                  args.pop
+                when ActionController::Parameters
+                  args.pop.to_h
+                end
+              helper.call self, args, options
             end
           end
       end
 
-      # strategy for building urls to send to the client
+      # strategy for building URLs to send to the client
       PATH    = ->(options) { ActionDispatch::Http::URL.path_for(options) }
       UNKNOWN = ->(options) { ActionDispatch::Http::URL.url_for(options) }
 
@@ -593,14 +591,14 @@ module ActionDispatch
         if route.segment_keys.include?(:controller)
           ActiveSupport::Deprecation.warn(<<-MSG.squish)
             Using a dynamic :controller segment in a route is deprecated and
-            will be removed in Rails 6.0.
+            will be removed in Rails 6.1.
           MSG
         end
 
         if route.segment_keys.include?(:action)
           ActiveSupport::Deprecation.warn(<<-MSG.squish)
             Using a dynamic :action segment in a route is deprecated and
-            will be removed in Rails 6.0.
+            will be removed in Rails 6.1.
           MSG
         end
 
@@ -819,6 +817,10 @@ module ActionDispatch
         RESERVED_OPTIONS.each { |ro| path_options.delete ro }
 
         path, params = generate(route_name, path_options, recall)
+
+        if options.key? :params
+          params.merge! options[:params]
+        end
 
         options[:path]        = path
         options[:script_name] = script_name

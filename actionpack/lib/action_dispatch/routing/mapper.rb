@@ -115,9 +115,9 @@ module ActionDispatch
           @defaults = defaults
           @set = set
 
-          @to                 = to
-          @default_controller = controller
-          @default_action     = default_action
+          @to                 = intern(to)
+          @default_controller = intern(controller)
+          @default_action     = intern(default_action)
           @ast                = ast
           @anchor             = anchor
           @via                = via
@@ -222,6 +222,10 @@ module ActionDispatch
         private :build_path
 
         private
+          def intern(object)
+            object.is_a?(String) ? -object : object
+          end
+
           def add_wildcard_options(options, formatted, path_ast)
             # Add a constraint for wildcard route to make it non-greedy and match the
             # optional format part of the route by default.
@@ -1141,6 +1145,10 @@ module ActionDispatch
           attr_reader :controller, :path, :param
 
           def initialize(entities, api_only, shallow, options = {})
+            if options[:param].to_s.include?(":")
+              raise ArgumentError, ":param option can't contain colons"
+            end
+
             @name       = entities.to_s
             @path       = (options[:path] || @name).to_s
             @controller = (options[:controller] || @name).to_s
@@ -1398,6 +1406,8 @@ module ActionDispatch
         #   as a comment on a blog post like <tt>/posts/a-long-permalink/comments/1234</tt>
         #   to be shortened to just <tt>/comments/1234</tt>.
         #
+        #   Set <tt>shallow: false</tt> on a child resource to ignore a parent's shallow parameter.
+        #
         # [:shallow_path]
         #   Prefixes nested shallow routes with the specified path.
         #
@@ -1439,6 +1449,9 @@ module ActionDispatch
         # [:format]
         #   Allows you to specify the default value for optional +format+
         #   segment or disable it by supplying +false+.
+        #
+        # [:param]
+        #   Allows you to override the default param name of +:id+ in the URL.
         #
         # === Examples
         #
@@ -1665,7 +1678,8 @@ module ActionDispatch
               return true
             end
 
-            if options.delete(:shallow)
+            if options[:shallow]
+              options.delete(:shallow)
               shallow do
                 send(method, resources.pop, options, &block)
               end

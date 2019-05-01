@@ -11,7 +11,7 @@ module ActiveRecord
           else
             super
           end
-          discard_remaining_results
+          @connection.abandon_results!
           result
         end
 
@@ -61,7 +61,9 @@ module ActiveRecord
 
         def exec_delete(sql, name = nil, binds = [])
           if without_prepared_statement?(binds)
-            execute_and_free(sql, name) { @connection.affected_rows }
+            @lock.synchronize do
+              execute_and_free(sql, name) { @connection.affected_rows }
+            end
           else
             exec_stmt_and_free(sql, name, binds) { |stmt| stmt.affected_rows }
           end
@@ -69,20 +71,29 @@ module ActiveRecord
         alias :exec_update :exec_delete
 
         private
+          def execute_batch(sql, name = nil)
+            super
+            @connection.abandon_results!
+          end
+
           def default_insert_value(column)
-            Arel.sql("DEFAULT") unless column.auto_increment?
+            super unless column.auto_increment?
           end
 
           def last_inserted_id(result)
             @connection.last_id
           end
 
-          def discard_remaining_results
-            @connection.abandon_results!
-          end
-
           def supports_set_server_option?
             @connection.respond_to?(:set_server_option)
+          end
+
+          def build_truncate_statements(*table_names)
+            if table_names.size == 1
+              super.first
+            else
+              super
+            end
           end
 
           def multi_statements_enabled?(flags)
@@ -115,6 +126,33 @@ module ActiveRecord
                 reconnect!
               end
             end
+          end
+
+          def combine_multi_statements(total_sql)
+            total_sql.each_with_object([]) do |sql, total_sql_chunks|
+              previous_packet = total_sql_chunks.last
+              if max_allowed_packet_reached?(sql, previous_packet)
+                total_sql_chunks << +sql
+              else
+                previous_packet << ";\n"
+                previous_packet << sql
+              end
+            end
+          end
+
+          def max_allowed_packet_reached?(current_packet, previous_packet)
+            if current_packet.bytesize > max_allowed_packet
+              raise ActiveRecordError,
+                "Fixtures set is too large #{current_packet.bytesize}. Consider increasing the max_allowed_packet variable."
+            elsif previous_packet.nil?
+              true
+            else
+              (current_packet.bytesize + previous_packet.bytesize + 2) > max_allowed_packet
+            end
+          end
+
+          def max_allowed_packet
+            @max_allowed_packet ||= show_variable("max_allowed_packet")
           end
 
           def exec_stmt_and_free(sql, name, binds, cache_stmt: false)

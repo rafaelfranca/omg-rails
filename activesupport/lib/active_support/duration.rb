@@ -4,7 +4,6 @@ require "active_support/core_ext/array/conversions"
 require "active_support/core_ext/module/delegation"
 require "active_support/core_ext/object/acts_like"
 require "active_support/core_ext/string/filters"
-require "active_support/deprecation"
 
 module ActiveSupport
   # Provides accurate date and time measurements using Date#advance and
@@ -214,8 +213,11 @@ module ActiveSupport
     end
 
     def coerce(other) #:nodoc:
-      if Scalar === other
+      case other
+      when Scalar
         [other, self]
+      when Duration
+        [Scalar.new(other.value), self]
       else
         [Scalar.new(other), self]
       end

@@ -90,18 +90,18 @@ class BaseTest < ActiveSupport::TestCase
 
   test "can pass random headers in as a hash to mail" do
     hash = { "X-Special-Domain-Specific-Header" => "SecretValue",
-            "In-Reply-To" => "1234@mikel.me.com" }
+            "In-Reply-To" => "<1234@mikel.me.com>" }
     mail = BaseMailer.welcome(hash)
     assert_equal("SecretValue", mail["X-Special-Domain-Specific-Header"].decoded)
-    assert_equal("1234@mikel.me.com", mail["In-Reply-To"].decoded)
+    assert_equal("<1234@mikel.me.com>", mail["In-Reply-To"].decoded)
   end
 
   test "can pass random headers in as a hash to headers" do
     hash = { "X-Special-Domain-Specific-Header" => "SecretValue",
-            "In-Reply-To" => "1234@mikel.me.com" }
+            "In-Reply-To" => "<1234@mikel.me.com>" }
     mail = BaseMailer.welcome_with_headers(hash)
     assert_equal("SecretValue", mail["X-Special-Domain-Specific-Header"].decoded)
-    assert_equal("1234@mikel.me.com", mail["In-Reply-To"].decoded)
+    assert_equal("<1234@mikel.me.com>", mail["In-Reply-To"].decoded)
   end
 
   # Attachments
@@ -305,6 +305,16 @@ class BaseTest < ActiveSupport::TestCase
     assert_equal("TEXT Implicit Multipart", email.parts[0].body.encoded)
     assert_equal("text/html", email.parts[1].mime_type)
     assert_equal("HTML Implicit Multipart", email.parts[1].body.encoded)
+  end
+
+  test "implicit multipart formats" do
+    email = BaseMailer.implicit_multipart_formats
+    assert_equal(2, email.parts.size)
+    assert_equal("multipart/alternative", email.mime_type)
+    assert_equal("text/plain", email.parts[0].mime_type)
+    assert_equal("Implicit Multipart [:text]", email.parts[0].body.encoded)
+    assert_equal("text/html", email.parts[1].mime_type)
+    assert_equal("Implicit Multipart [:html]", email.parts[1].body.encoded)
   end
 
   test "implicit multipart with sort order" do
@@ -897,22 +907,35 @@ class BaseTest < ActiveSupport::TestCase
   end
 
   test "notification for process" do
-    begin
-      events = []
-      ActiveSupport::Notifications.subscribe("process.action_mailer") do |*args|
-        events << ActiveSupport::Notifications::Event.new(*args)
-      end
-
-      BaseMailer.welcome(body: "Hello there").deliver_now
-
-      assert_equal 1, events.length
-      assert_equal "process.action_mailer", events[0].name
-      assert_equal "BaseMailer", events[0].payload[:mailer]
-      assert_equal :welcome, events[0].payload[:action]
-      assert_equal [{ body: "Hello there" }], events[0].payload[:args]
-    ensure
-      ActiveSupport::Notifications.unsubscribe "process.action_mailer"
+    events = []
+    ActiveSupport::Notifications.subscribe("process.action_mailer") do |*args|
+      events << ActiveSupport::Notifications::Event.new(*args)
     end
+
+    BaseMailer.welcome(body: "Hello there").deliver_now
+
+    assert_equal 1, events.length
+    assert_equal "process.action_mailer", events[0].name
+    assert_equal "BaseMailer", events[0].payload[:mailer]
+    assert_equal :welcome, events[0].payload[:action]
+    assert_equal [{ body: "Hello there" }], events[0].payload[:args]
+  ensure
+    ActiveSupport::Notifications.unsubscribe "process.action_mailer"
+  end
+
+  test "notification for deliver" do
+    events = []
+    ActiveSupport::Notifications.subscribe("deliver.action_mailer") do |*args|
+      events << ActiveSupport::Notifications::Event.new(*args)
+    end
+
+    BaseMailer.welcome(body: "Hello there").deliver_now
+
+    assert_equal 1, events.length
+    assert_equal "deliver.action_mailer", events[0].name
+    assert_not_nil events[0].payload[:message_id]
+  ensure
+    ActiveSupport::Notifications.unsubscribe "deliver.action_mailer"
   end
 
   private
