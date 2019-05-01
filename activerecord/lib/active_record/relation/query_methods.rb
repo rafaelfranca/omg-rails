@@ -64,11 +64,12 @@ module ActiveRecord
 
       def missing(*args)
         args.each do |arg|
-          opts = { arg => { id: nil } }
-          @scope.left_joins(arg)
-          @scope.references!(PredicateBuilder.references(opts))
-          @scope.where_clause += @scope.where(opts)
+          reflection = @scope.klass._reflect_on_association(arg)
+          opts = { reflection.table_name => { reflection.association_primary_key => nil } }
+          @scope.left_outer_joins!(arg)
+          @scope.where!(opts)
         end
+
         @scope
       end
 
