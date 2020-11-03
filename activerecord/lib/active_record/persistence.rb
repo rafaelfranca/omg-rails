@@ -63,8 +63,8 @@ module ActiveRecord
       # go through Active Record's type casting and serialization.
       #
       # See <tt>ActiveRecord::Persistence#insert_all</tt> for documentation.
-      def insert(attributes, returning: nil, unique_by: nil)
-        insert_all([ attributes ], returning: returning, unique_by: unique_by)
+      def insert(attributes, returning: nil, unique_by: nil, primary_key: nil)
+        insert_all([ attributes ], returning: returning, unique_by: unique_by, primary_key: primary_key)
       end
 
       # Inserts multiple records into the database in a single SQL INSERT
@@ -120,8 +120,8 @@ module ActiveRecord
       #     { id: 1, title: "Rework", author: "David" },
       #     { id: 1, title: "Eloquent Ruby", author: "Russ" }
       #   ])
-      def insert_all(attributes, returning: nil, unique_by: nil)
-        InsertAll.new(self, attributes, on_duplicate: :skip, returning: returning, unique_by: unique_by).execute
+      def insert_all(attributes, returning: nil, unique_by: nil, primary_key: nil)
+        InsertAll.new(self, attributes, on_duplicate: :skip, returning: returning, unique_by: unique_by, primary_key: primary_key).execute
       end
 
       # Inserts a single record into the database in a single SQL INSERT
@@ -130,8 +130,8 @@ module ActiveRecord
       # go through Active Record's type casting and serialization.
       #
       # See <tt>ActiveRecord::Persistence#insert_all!</tt> for more.
-      def insert!(attributes, returning: nil)
-        insert_all!([ attributes ], returning: returning)
+      def insert!(attributes, returning: nil, primary_key: nil)
+        insert_all!([ attributes ], returning: returning, primary_key: primary_key)
       end
 
       # Inserts multiple records into the database in a single SQL INSERT
@@ -174,8 +174,8 @@ module ActiveRecord
       #     { id: 1, title: "Rework", author: "David" },
       #     { id: 1, title: "Eloquent Ruby", author: "Russ" }
       #   ])
-      def insert_all!(attributes, returning: nil)
-        InsertAll.new(self, attributes, on_duplicate: :raise, returning: returning).execute
+      def insert_all!(attributes, returning: nil, primary_key: nil)
+        InsertAll.new(self, attributes, on_duplicate: :raise, returning: returning, primary_key: primary_key).execute
       end
 
       # Updates or inserts (upserts) a single record into the database in a
@@ -184,8 +184,8 @@ module ActiveRecord
       # go through Active Record's type casting and serialization.
       #
       # See <tt>ActiveRecord::Persistence#upsert_all</tt> for documentation.
-      def upsert(attributes, returning: nil, unique_by: nil)
-        upsert_all([ attributes ], returning: returning, unique_by: unique_by)
+      def upsert(attributes, returning: nil, unique_by: nil, primary_key: nil)
+        upsert_all([ attributes ], returning: returning, unique_by: unique_by, primary_key: primary_key)
       end
 
       # Updates or inserts (upserts) multiple records into the database in a
@@ -239,8 +239,8 @@ module ActiveRecord
       #   ], unique_by: :isbn)
       #
       #   Book.find_by(isbn: "1").title # => "Eloquent Ruby"
-      def upsert_all(attributes, returning: nil, unique_by: nil)
-        InsertAll.new(self, attributes, on_duplicate: :update, returning: returning, unique_by: unique_by).execute
+      def upsert_all(attributes, returning: nil, unique_by: nil, primary_key: nil)
+        InsertAll.new(self, attributes, on_duplicate: :update, returning: returning, unique_by: unique_by, primary_key: primary_key).execute
       end
 
       # Given an attributes hash, +instantiate+ returns a new instance of

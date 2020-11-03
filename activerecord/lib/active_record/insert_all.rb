@@ -7,7 +7,7 @@ module ActiveRecord
     attr_reader :model, :connection, :inserts, :keys
     attr_reader :on_duplicate, :returning, :unique_by
 
-    def initialize(model, inserts, on_duplicate:, returning: nil, unique_by: nil)
+    def initialize(model, inserts, on_duplicate:, returning: nil, unique_by: nil, primary_key: nil)
       raise ArgumentError, "Empty list of attributes passed" if inserts.blank?
 
       @model, @connection, @inserts, @keys = model, model.connection, inserts, inserts.first.keys.map(&:to_s)
@@ -22,7 +22,7 @@ module ActiveRecord
       @returning = (connection.supports_insert_returning? ? primary_keys : false) if @returning.nil?
       @returning = false if @returning == []
 
-      @unique_by = find_unique_index_for(unique_by)
+      @unique_by = find_unique_index_for(unique_by, primary_key || model.primary_key)
       @on_duplicate = :skip if @on_duplicate == :update && updatable_columns.empty?
 
       ensure_valid_options_for_connection!
@@ -68,8 +68,8 @@ module ActiveRecord
     private
       attr_reader :scope_attributes
 
-      def find_unique_index_for(unique_by)
-        name_or_columns = unique_by || model.primary_key
+      def find_unique_index_for(unique_by, primary_key)
+        name_or_columns = unique_by || primary_key
         match = Array(name_or_columns).map(&:to_s)
 
         if index = unique_indexes.find { |i| match.include?(i.name) || i.columns == match }
