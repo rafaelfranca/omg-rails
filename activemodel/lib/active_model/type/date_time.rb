@@ -2,6 +2,39 @@
 
 module ActiveModel
   module Type
+    # Attribute type to represent dates and times. It is registered under the
+    # +:datetime+ key.
+    #
+    #   class Event
+    #     include ActiveModel::Attributes
+    #
+    #     attribute :start, :datetime
+    #   end
+    #
+    #   event = Event.new(start: "Wed, 04 Sep 2013 03:00:00 EAT")
+    #
+    #   event.start.year # => 2013
+    #   event.start.month # => 9
+    #   event.start.day # => 4
+    #   event.start.hour # => 3
+    #   event.start.min # => 0
+    #   event.start.sec # => 0
+    #   event.start.zone # => "EAT"
+    #
+    # String values are coerced to instances of +Time+ considered they follow
+    # an ISO 8601 datetime format. Partial time-only formats are also accepted.
+    #
+    #   event.start = "06:07:08+09:00"
+    #   event.start.utc # => 1999-12-31 21:07:08 UTC
+    #
+    # Precision is limited to seconds but second fraction support can be added
+    # during attribute definition.
+    #
+    #   class Event
+    #     include ActiveModel::Attributes
+    #
+    #     attribute :start, :datetime, precision: 4
+    #   end
     class DateTime < Value # :nodoc:
       include Helpers::Timezone
       include Helpers::TimeValue

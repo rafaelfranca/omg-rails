@@ -6,6 +6,11 @@ require "active_model/attribute_set/builder"
 require "active_model/attribute_set/yaml_encoder"
 
 module ActiveModel
+  # Decorator class that wraps a hash containing a collection of attributes. It
+  # is used at both class and instance level to represent model attributes. In
+  # addition to common hash methods such as key and value manipulations, it
+  # performs mass operations over all current attributes at once, such as
+  # serialization and casting to prepare them for assignment and persistence.
   class AttributeSet # :nodoc:
     delegate :each_value, :fetch, :except, to: :attributes
 

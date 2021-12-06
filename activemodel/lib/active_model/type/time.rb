@@ -2,6 +2,39 @@
 
 module ActiveModel
   module Type
+    # Attribute type for time representation. It is registered under the
+    # +:time+ key.
+    #
+    #   class Event
+    #     include ActiveModel::Attributes
+    #
+    #     attribute :start, :time
+    #   end
+    #
+    #   event = Event.new(start: "2022-02-18T13:15:00-05:00")
+    #
+    #   event.start.year # => 2022
+    #   event.start.month # => 2
+    #   event.start.day # => 18
+    #   event.start.hour # => 13
+    #   event.start.min # => 15
+    #   event.start.sec # => 0
+    #   event.start.zone # => "EST"
+    #
+    # String values are coerced to instances of +Time+ considered they follow
+    # an ISO 8601 datetime format. Partial time-only formats are also accepted.
+    #
+    #   event.start = "06:07:08+09:00"
+    #   event.start.utc # => 1999-12-31 21:07:08 UTC
+    #
+    # Precision is limited to seconds but second fraction support can be
+    # added upon attribute definition.
+    #
+    #   class Event
+    #     include ActiveModel::Attributes
+    #
+    #     attribute :start, :time, precision: 4
+    #   end
     class Time < Value # :nodoc:
       include Helpers::Timezone
       include Helpers::TimeValue

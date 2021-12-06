@@ -4,7 +4,29 @@ require "active_model/attribute_set"
 require "active_model/attribute/user_provided_default"
 
 module ActiveModel
-  module Attributes # :nodoc:
+  # The Attributes module allows models to define attributes beyond simple Ruby
+  # readers and writers. Similar to Active Record attributes, which are
+  # typically inferred from the database schema, Active Model Attributes are
+  # aware of data types and can have default values, handle casting, and
+  # serialization.
+  #
+  # To use Attributes, include the module in your model class and define your
+  # attributes using the +attribute+ macro. It requires a name, type, and
+  # optional default value plus any other options supported by the attribute
+  # type.
+  #
+  #   class Person
+  #     include ActiveModel::Attributes
+  #
+  #     attribute :name, :string
+  #     attribute :active, :boolean, default: true
+  #   end
+  #
+  #   person = Person.new(name: "Volmer")
+  #
+  #   person.name # => "Volmer"
+  #   person.active # => true
+  module Attributes
     extend ActiveSupport::Concern
     include ActiveModel::AttributeMethods
 
@@ -16,6 +38,21 @@ module ActiveModel
     end
 
     module ClassMethods
+      # Defines an attribute in a model class. It requires a name and optional
+      # cast type, default value, and any other options handled by the specific
+      # attribute type implementations.
+      #
+      #   class Person
+      #     include ActiveModel::Attributes
+      #
+      #     attribute :name, :string
+      #     attribute :active, :boolean, default: true
+      #   end
+      #
+      #   person = Person.new(name: "Volmer")
+      #
+      #   person.name # => "Volmer"
+      #   person.active # => true
       def attribute(name, cast_type = nil, default: NO_DEFAULT_PROVIDED, **options)
         name = name.to_s
 
@@ -27,7 +64,7 @@ module ActiveModel
         define_attribute_method(name)
       end
 
-      # Returns an array of attribute names as strings
+      # Returns an array of attribute names as strings.
       #
       #   class Person
       #     include ActiveModel::Attributes
@@ -36,8 +73,7 @@ module ActiveModel
       #     attribute :age, :integer
       #   end
       #
-      #   Person.attribute_names
-      #   # => ["name", "age"]
+      #   Person.attribute_names # => ["name", "age"]
       def attribute_names
         attribute_types.keys
       end
@@ -75,7 +111,7 @@ module ActiveModel
         end
     end
 
-    def initialize(*)
+    def initialize(*) # :nodoc:
       @attributes = self.class._default_attributes.deep_dup
       super
     end
@@ -85,7 +121,8 @@ module ActiveModel
       super
     end
 
-    # Returns a hash of all the attributes with their names as keys and the values of the attributes as values.
+    # Returns a hash of all the attributes with their names as keys and the
+    # values of the attributes as values.
     #
     #   class Person
     #     include ActiveModel::Attributes
@@ -94,14 +131,13 @@ module ActiveModel
     #     attribute :age, :integer
     #   end
     #
-    #   person = Person.new(name: 'Francesco', age: 22)
-    #   person.attributes
-    #   # => {"name"=>"Francesco", "age"=>22}
+    #   person = Person.new(name: "Francesco", age: 22)
+    #   person.attributes # => { "name" => "Francesco", "age" => 22}
     def attributes
       @attributes.to_hash
     end
 
-    # Returns an array of attribute names as strings
+    # Returns an array of attribute names as strings.
     #
     #   class Person
     #     include ActiveModel::Attributes
@@ -111,13 +147,12 @@ module ActiveModel
     #   end
     #
     #   person = Person.new
-    #   person.attribute_names
-    #   # => ["name", "age"]
+    #   person.attribute_names # => ["name", "age"]
     def attribute_names
       @attributes.keys
     end
 
-    def freeze
+    def freeze # :nodoc:
       @attributes = @attributes.clone.freeze unless frozen?
       super
     end

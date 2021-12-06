@@ -2,6 +2,18 @@
 
 module ActiveModel
   module Type
+    # The base class for all attribute types, as well as the default attribute
+    # type when a cast type is not specified when defining an attribute.
+    #
+    # Value defines the API all type classes are expected to have as part of
+    # their contract, and they either overwrite these operations or blindly
+    # inherit them from the base class.
+    #
+    # Value is initialized with the three pieces of data used to construct the
+    # idea of a type: precision, scale, and limit. Once initialized, the Value
+    # instance exposes these through attribute readers. The following instance
+    # methods are exposed by the class and they represent the public interface
+    # for all types.
     class Value
       attr_reader :precision, :scale, :limit
 
@@ -19,7 +31,8 @@ module ActiveModel
         true
       end
 
-      def type # :nodoc:
+      # Returns the unique type name as a Symbol.
+      def type
       end
 
       # Converts a value from database input to the appropriate ruby type. The

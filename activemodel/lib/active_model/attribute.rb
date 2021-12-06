@@ -3,6 +3,15 @@
 require "active_support/core_ext/object/duplicable"
 
 module ActiveModel
+  # The Attribute class is the representation of each model instance attribute.
+  # It holds all data and metadata related to each attribute, such as name,
+  # type, and original value. This class is also the public entrypoint to
+  # manipulate the state of the attribute it represents as it offers methods to
+  # type cast, read, and serialize values. It manages to perform these
+  # operations by using the appropriate type Value instance it is associated
+  # with. Another particularity of the Attribute class is that it holds a few
+  # private subclasses for particular cases, such as null, database, and
+  # uninitialized attributes.
   class Attribute # :nodoc:
     class << self
       def from_database(name, value_before_type_cast, type, value = nil)
@@ -38,12 +47,18 @@ module ActiveModel
       @value = value unless value.nil?
     end
 
+    # The attribute's value, cast by the type. When called, it attempts to type
+    # cast the value_before_type_cast and memoizes its result. In case a value
+    # was passed to the initialization, that value is always returned instead.
     def value
       # `defined?` is cheaper than `||=` when we get back falsy values
       @value = type_cast(value_before_type_cast) unless defined?(@value)
       @value
     end
 
+    # Returns the original attribute's original value (expected to be this same
+    # method) in case such object was specified during initialization; otherwise
+    # it type casts and returns the +value_before_type_cast+.
     def original_value
       if assigned?
         original_attribute.original_value
@@ -60,10 +75,20 @@ module ActiveModel
       type.serializable?(value, &block)
     end
 
+    # Predicate method that tells if the attribute has changed by checking for
+    # some states; if an original attribute was specified during initialization,
+    # it checks if its original value has changed when compared to the current
+    # value (see method above) using the type's changed? predicate; if an
+    # original method is not defined, it checks if the attribute has changed in
+    # place (see below).
     def changed?
       changed_from_assignment? || changed_in_place?
     end
 
+    # Predicate method that checks if an attribute value has mutated since it
+    # was last read. If value is memoized then it assumes that the attribute has
+    # been read and proceeds to check if it has changed in place using the
+    # type's method of the same name.
     def changed_in_place?
       has_been_read? && type.changed_in_place?(original_value_for_database, value)
     end
@@ -72,19 +97,29 @@ module ActiveModel
       with_value_from_database(value_for_database)
     end
 
+    # Takes a value and checks if it's valid for the current type, and then
+    # proceeds to instantiate a new FromUser attribute with the given value and
+    # all the current metadata (name, type, original attribute or +self+).
     def with_value_from_user(value)
       type.assert_valid_value(value)
       self.class.from_user(name, value, type, original_attribute || self)
     end
 
+    # Returns a new +FromDatabase+ attribute instance with the given value,
+    # current name, and current type.
     def with_value_from_database(value)
       self.class.from_database(name, value, type)
     end
 
+    # Returns a new +WithCastValue+ attribute instance with the given value,
+    # current name, and current type.
     def with_cast_value(value)
       self.class.with_cast_value(name, value, type)
     end
 
+    # Returns a new instance of its own class with the given type. In case the
+    # attribute was changed in place, it first instantiates a +FromUser+
+    # attribute with the value and then calls +with_type+ on it.
     def with_type(type)
       if changed_in_place?
         with_value_from_user(value).with_type(type)
@@ -93,14 +128,20 @@ module ActiveModel
       end
     end
 
+    # This method is supposed to be implemented by specialized subclasses and it
+    # is used by value to serialize the value (before type cast) passed upon
+    # initialization.
     def type_cast(*)
       raise NotImplementedError
     end
 
+    # This method always returns true, but the +Uninitialized+ subclass
+    # overwrites it to return false.
     def initialized?
       true
     end
 
+    # This method is always false, but the +FromUser+ subclass overwrites it.
     def came_from_user?
       false
     end
@@ -137,6 +178,9 @@ module ActiveModel
       coder["value"] = value if defined?(@value)
     end
 
+    # If an original attribute was specified upon initialization, it returns its
+    # +original_value_for_database+ (supposedly this same very method);
+    # otherwise it serializes the original value.
     def original_value_for_database
       if assigned?
         original_attribute.original_value_for_database
