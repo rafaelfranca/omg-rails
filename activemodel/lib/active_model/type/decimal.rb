@@ -13,15 +13,16 @@ module ActiveModel
     #     attribute :weight, :decimal
     #   end
     #
-    #   bag  = BagOfCoffee.new(weight: "0.0001")
+    #   bag = BagOfCoffee.new(weight: "0.0001")
     #   bag.weight # => 0.1e-3
     #
-    # Float as well as any other numeric values are converted into big decimals.
-    # Any other objects are cast based on their +to_d+ method, or alternatively
-    # coerced using +to_s+ and then cast to big decimals.
+    # Numeric instances are converted to BigDecimal instances. Any other objects
+    # are cast using their +to_d+ method, if it exists. If it does not exist,
+    # the object is converted to a string using +to_s+, which is then coerced to
+    # a BigDecimal using +to_d+.
     #
-    # The default precision for big decimals is 18; however it can be customized
-    # during the attribute definition.
+    # Decimal precision defaults to 18, and can be customized when declaring an
+    # attribute:
     #
     #   class BagOfCoffee
     #     include ActiveModel::Attributes

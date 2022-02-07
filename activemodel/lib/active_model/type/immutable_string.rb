@@ -16,10 +16,10 @@ module ActiveModel
     #   person.name # => "1"
     #   person.name.frozen? # => true
     #
-    # Values are coerced based on their +to_s+ method. Boolean values are
-    # treated differently, however: it will cast +true+ to <tt>"t"</tt> and
-    # +false+ to <tt>"f"</tt> strings. These values can be customized during the
-    # attribute definition:
+    # Values are coerced to strings using their +to_s+ method. Boolean values
+    # are treated differently, however: +true+ will be cast to <tt>"t"</tt> and
+    # +false+ will be cast to <tt>"f"</tt>. These strings can be customized when
+    # declaring an attribute:
     #
     #   class Person
     #     include ActiveModel::Attributes

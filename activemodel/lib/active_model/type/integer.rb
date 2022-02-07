@@ -14,18 +14,19 @@ module ActiveModel
     #   person = Person.new(age: "18")
     #   person.age # => 18
     #
-    # Casting is performed using the +to_i+ method of the given value; in case
-    # an error is raised, the cast value is +nil+.
+    # Values are cast using their +to_i+ method, if it exists. If it does not
+    # exist, or if it raises an error, the value will be cast to +nil+:
     #
     #   person.age = :not_an_integer
-    #   # this is cast to +nil+, even though Symbol does not define +to_i+.
+    #   person.age # => nil (because Symbol does not define #to_i)
     #
     # Serialization also works under the same principle. Non-numeric strings are
     # serialized as +nil+, for example.
     #
-    # Serialization also validates for a range limit of byte-storage as defined
-    # in the type definition. By default, the default byte limit is 4 but it can
-    # be overridden when defining an attribute.
+    # Serialization also validates that the integer can be stored using a
+    # limited number of bytes. If it cannot, an ActiveModel::RangeError will be
+    # raised. The default limit is 4 bytes, and can be customized when declaring
+    # an attribute:
     #
     #   class Person
     #     include ActiveModel::Attributes

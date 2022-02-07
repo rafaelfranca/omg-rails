@@ -4,19 +4,13 @@ module ActiveModel
   module Type
     # The base class for all attribute types, as well as the default attribute
     # type when a cast type is not specified when defining an attribute.
-    #
-    # Value defines the API all type classes are expected to have as part of
-    # their contract, and they either overwrite these operations or blindly
-    # inherit them from the base class.
-    #
-    # Value is initialized with the three pieces of data used to construct the
-    # idea of a type: precision, scale, and limit. Once initialized, the Value
-    # instance exposes these through attribute readers. The following instance
-    # methods are exposed by the class and they represent the public interface
-    # for all types.
     class Value
       attr_reader :precision, :scale, :limit
 
+      # Define the type instance's state with three basic configuration
+      # settings: precision, limit, and scale. These values are dependent on the
+      # type subclass specifics. In the Value base class they are used for
+      # instance comparison and hash representation only.
       def initialize(precision: nil, limit: nil, scale: nil)
         @precision = precision
         @scale = scale

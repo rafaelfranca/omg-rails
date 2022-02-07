@@ -5,9 +5,6 @@ module ActiveModel
     # A class that behaves like a boolean type, including rules for coercion of
     # user input.
     #
-    # Values set from user input will first be coerced into the appropriate Ruby
-    # type. Coercion behavior is roughly mapped to Ruby's boolean semantics.
-    #
     # - <tt>"false"</tt>, <tt>"f"</tt> , <tt>"0"</tt>, +0+ or any other value in
     #   +FALSE_VALUES+ will be coerced to +false+.
     # - Empty strings are coerced to +nil+.

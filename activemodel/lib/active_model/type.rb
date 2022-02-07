@@ -18,9 +18,7 @@ require "active_model/type/time"
 require "active_model/type/registry"
 
 module ActiveModel
-  # The Type module works as the namespace for all type classes as well as
-  # exposes the public interface to register and lookup types. At load time it
-  # instantiates a global type Registry and sets all standard types on it.
+  # The Type module acts as a global registry for cast types.
   module Type
     @registry = Registry.new
 
@@ -33,14 +31,13 @@ module ActiveModel
         registry.register(type_name, klass, &block)
       end
 
-      # Type lookup, delegated to the global Registry instance.
+      # Look up a cast type by name.
       def lookup(...) # :nodoc:
         registry.lookup(...)
       end
 
-      # Memoizes (globally) and returns an instance of Value, the default type
-      # class, which is used as the default type when a type is not set during
-      # an attribute declaration.
+      # Returns a memoized instance of Type::Value that can be used as a default
+      # type when one is not specified.
       def default_value # :nodoc:
         @default_value ||= Value.new
       end

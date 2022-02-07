@@ -5,9 +5,7 @@ module ActiveModel
     # Attribute type for representation of binary data. This type is registered
     # under the +:binary+ key.
     #
-    # Values are coerced based on their +to_s+ method. Then the resulting value
-    # is then available for equality comparisons and conversions to hexadecimal
-    # representations.
+    # Non-string values are coerced to strings using their +to_s+ method.
     class Binary < Value
       def type
         :binary

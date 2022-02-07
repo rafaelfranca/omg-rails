@@ -17,7 +17,7 @@ module ActiveModel
     #   person.id # => 18000000000
     #
     # All casting and serialization are performed in the same way as the
-    # standard <tt>ActiveModel::Type::Integer</tt> type.
+    # standard ActiveModel::Type::Integer type.
     class BigInteger < Integer
       private
         def max_value

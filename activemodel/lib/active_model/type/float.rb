@@ -13,18 +13,16 @@ module ActiveModel
     #     attribute :weight, :float
     #   end
     #
-    #   bag  = BagOfCoffee.new(weight: "0.25")
+    #   bag = BagOfCoffee.new(weight: "0.25")
     #   bag.weight # => 0.25
     #
     # Values are coerced to their float representation using their +to_f+
-    # methods. Certain strings might represent specific float constants, which
-    # are cast accordingly:
+    # methods. However, the following strings which represent floating point
+    # constants are cast accordingly:
     #
     # - <tt>"Infinity"</tt> is cast to <tt>Float::INFINITY</tt>.
     # - <tt>"-Infinity"</tt> is cast to <tt>-Float::INFINITY</tt>.
     # - <tt>"NaN"</tt> is cast to <tt>Float::NAN</tt>.
-    #
-    # Any other string value is cast into their +to_f+ representation.
     class Float < Value
       include Helpers::Numeric
 

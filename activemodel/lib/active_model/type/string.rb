@@ -6,10 +6,10 @@ module ActiveModel
   module Type
     # Attribute type for strings. It is registered under the +:string+ key.
     #
-    # This class is a specialization of
-    # <tt>ActiveModel::Type::ImmutableString</tt>. Its coercion rules behave the
-    # same way. However it accounts for mutable strings, so dirty tracking can
-    # check if a string object has changed properly.
+    # This class is a specialization of ActiveModel::Type::ImmutableString. It
+    # performs coercion in the same way, and can be configured in the same way.
+    # However, it accounts for mutable strings, so dirty tracking can properly
+    # check if a string has changed.
     class String < ImmutableString
       def changed_in_place?(raw_old_value, new_value)
         if new_value.is_a?(::String)
