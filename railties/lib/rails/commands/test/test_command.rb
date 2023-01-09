@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails/command"
+require "rails/commands/rake/rake_command"
 require "rails/test_unit/runner"
 require "rails/test_unit/reporter"
 
@@ -30,8 +31,16 @@ module Rails
         $LOAD_PATH << Rails::Command.root.join("test").to_s
 
         Rails::TestUnit::Runner.parse_options(args)
+        run_prepare_task(args)
         Rails::TestUnit::Runner.run(args)
       end
+
+      private
+        def run_prepare_task(args)
+          if @force_prepare || args.empty?
+            Rails::Command::RakeCommand.perform("test:prepare", nil, {}, optional: true)
+          end
+        end
     end
   end
 end
